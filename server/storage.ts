@@ -1,38 +1,99 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import {
+  tvs, games, preferences,
+  type Tv, type InsertTv, type UpdateTvRequest,
+  type Game, type InsertGame,
+  type Preference, type InsertPreference
+} from "@shared/schema";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // TVs
+  getTvs(): Promise<Tv[]>;
+  getTv(id: number): Promise<Tv | undefined>;
+  updateTv(id: number, updates: UpdateTvRequest): Promise<Tv>;
+  createTv(tv: InsertTv): Promise<Tv>;
+
+  // Games
+  getGames(): Promise<Game[]>;
+  getGame(id: number): Promise<Game | undefined>;
+  createGame(game: InsertGame): Promise<Game>;
+
+  // Preferences
+  getPreferences(): Promise<Preference | undefined>;
+  updatePreferences(prefs: InsertPreference): Promise<Preference>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
-
-  constructor() {
-    this.users = new Map();
+export class DatabaseStorage implements IStorage {
+  async getTvs(): Promise<Tv[]> {
+    return await db.select().from(tvs).orderBy(tvs.id);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getTv(id: number): Promise<Tv | undefined> {
+    const [tv] = await db.select().from(tvs).where(eq(tvs.id, id));
+    return tv;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async updateTv(id: number, updates: UpdateTvRequest): Promise<Tv> {
+    const { lockDuration, ...fields } = updates;
+    
+    // Handle lock logic
+    if (lockDuration) {
+      const lockUntil = new Date();
+      lockUntil.setMinutes(lockUntil.getMinutes() + lockDuration);
+      (fields as any).lockedUntil = lockUntil;
+      (fields as any).manualOverride = true;
+    } else if (lockDuration === 0) {
+       // Explicit unlock
+       (fields as any).lockedUntil = null;
+       (fields as any).manualOverride = false;
+    }
+
+    const [updated] = await db.update(tvs)
+      .set(fields)
+      .where(eq(tvs.id, id))
+      .returning();
+    return updated;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async createTv(tv: InsertTv): Promise<Tv> {
+    const [created] = await db.insert(tvs).values(tv).returning();
+    return created;
+  }
+
+  async getGames(): Promise<Game[]> {
+    return await db.select().from(games).orderBy(desc(games.relevance), games.startTime);
+  }
+
+  async getGame(id: number): Promise<Game | undefined> {
+    const [game] = await db.select().from(games).where(eq(games.id, id));
+    return game;
+  }
+
+  async createGame(game: InsertGame): Promise<Game> {
+    const [created] = await db.insert(games).values(game).returning();
+    return created;
+  }
+
+  async getPreferences(): Promise<Preference | undefined> {
+    const [pref] = await db.select().from(preferences).limit(1);
+    return pref;
+  }
+
+  async updatePreferences(prefs: InsertPreference): Promise<Preference> {
+    // Upsert logic
+    const existing = await this.getPreferences();
+    if (existing) {
+        const [updated] = await db.update(preferences)
+            .set(prefs)
+            .where(eq(preferences.id, existing.id))
+            .returning();
+        return updated;
+    } else {
+        const [created] = await db.insert(preferences).values(prefs).returning();
+        return created;
+    }
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
