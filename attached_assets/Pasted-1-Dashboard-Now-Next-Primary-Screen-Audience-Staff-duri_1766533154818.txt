@@ -1,0 +1,174 @@
+1. Dashboard — “Now & Next” (Primary Screen)
+
+Audience: Staff during a shift
+Goal: Zero thinking, fast overrides
+
+Layout
+
+Top row
+
+Bar selector (if multi-location)
+
+Status badge:
+
+🟢 Auto
+
+🟡 Semi-Auto
+
+🔴 Manual
+
+Main table: TV Status
+
+Retool Table
+Columns:
+
+TV Name
+
+Current Channel
+
+Current Game
+
+Relevance Score
+
+Time Remaining
+
+Lock Status
+
+Actions
+
+Actions column
+
+🔒 Lock (15 / 30 / 60 mins)
+
+✋ Override
+
+✅ Apply Recommendation (if pending)
+
+Side panel: Upcoming Changes
+
+List of TVs
+
+“In 8 mins → ESPN (Lakers vs Warriors)”
+
+Toggle: Auto-apply ON/OFF
+
+Key Retool bindings
+
+Polling every 30–60s
+
+Conditional coloring:
+
+Red if relevance < threshold
+
+Yellow if lock expiring
+
+2. Recommendations Screen — “What Should Be On”
+
+Audience: Manager / owner
+Goal: Trust the algorithm
+
+Layout
+
+Two-column layout
+
+Left: Live Games
+
+League
+
+Teams
+
+Channel
+
+Importance
+
+Start time
+
+Right: TV Assignments
+
+Drag-and-drop:
+
+Game → TV
+
+Auto-suggested mappings highlighted
+
+Warning badges:
+
+“Duplicate”
+
+“Low relevance”
+
+“Override conflict”
+
+Buttons
+
+“Apply All”
+
+“Apply Selected”
+
+“Simulate (no changes)”
+
+This is where buy-in happens.
+
+3. TV Setup Screen — “Physical Reality”
+
+Audience: Owner / installer
+Goal: Reflect what’s actually mounted
+
+Table: TVs
+
+Fields:
+
+TV Name (e.g. “Bar Left 65”)
+
+Location (dropdown)
+
+Priority (Main / Secondary / Overflow)
+
+Allowed Channels (multi-select)
+
+Default League Bias
+
+Inline actions
+
+Test switch (if supported)
+
+Disable automation
+
+Hidden but critical
+
+TV groupings (e.g. “4 TVs above bar move together”)
+
+Even if you don’t expose this yet, model it.
+
+4. Preferences & Rules — “How This Bar Thinks”
+
+Audience: Owner
+Goal: Encode culture once
+
+Sections
+
+Favorite Teams
+
+Multi-select
+
+Weight slider (Nice-to-have → Must-show)
+
+League Priority
+
+Drag ranking (NFL > NBA > NHL)
+
+Hard Rules
+
+“Never switch off PPV”
+
+“Play local team if live”
+
+“No channel flipping under X mins”
+
+Advanced (collapsed by default)
+
+Minimum dwell time
+
+Duplicate allowance
+
+Quiet hours behavior
