@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import { scoreGame } from "./engine/relevance";
 import { getLiveGames } from "./api/liveGames";
+import { listLocks, createLock } from "./api/locks";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -41,6 +42,10 @@ export async function registerRoutes(
   });
 
   app.get(api.games.list.path, getLiveGames);
+
+  // === Locks ===
+  app.get("/api/locks", listLocks);
+  app.post("/api/locks", createLock);
 
   // === Preferences ===
   app.get(api.preferences.get.path, async (req, res) => {
