@@ -68,7 +68,7 @@ export async function registerRoutes(
     // Simple mock logic: Find high relevance games not currently on Main TVs
     const recommendations = [];
     const mainTvs = tvs.filter(t => t.priority === 'Main');
-    const liveGames = games.filter(g => g.status === 'Live' && g.relevance > 70);
+    const liveGames = games.filter(g => g.status === 'Live' && (g.relevance ?? 0) > 70);
 
     // If there's a highly relevant game not on a main TV, suggest it
     for (const game of liveGames) {
