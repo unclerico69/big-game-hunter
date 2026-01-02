@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Tv2, Settings, ListCheck, Zap } from "lucide-react";
+import { LayoutDashboard, Tv2, Settings, Zap } from "lucide-react";
 import { clsx } from "clsx";
-import { GiDeer } from "react-icons/gi";
+import { GiDeer, GiBeerStein } from "react-icons/gi";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -15,6 +15,7 @@ export function Layout({ children }: LayoutProps) {
     { href: "/recommendations", label: "Auto-Tuner", icon: Zap },
     { href: "/setup", label: "TV Setup", icon: Tv2 },
     { href: "/preferences", label: "Preferences", icon: Settings },
+    { href: "/customer", label: "Customer Portal", icon: GiBeerStein },
   ];
 
   return (

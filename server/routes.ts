@@ -120,7 +120,7 @@ export async function registerRoutes(
   // === Beers ===
   app.post(api.beers.order.path, async (req, res) => {
     const input = api.beers.order.input.parse(req.body);
-    const order = await storage.createBeerOrder(input.type);
+    const order = await storage.createBeerOrder(input.type, input.tableNumber);
     res.status(201).json(order);
   });
 

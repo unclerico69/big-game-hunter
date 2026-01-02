@@ -120,6 +120,7 @@ export const api = {
       path: '/api/beers/order',
       input: z.object({
         type: z.string(),
+        tableNumber: z.string(),
       }),
       responses: {
         201: z.object({ id: z.number() }),

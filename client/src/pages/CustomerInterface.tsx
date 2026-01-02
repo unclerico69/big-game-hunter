@@ -40,7 +40,7 @@ export default function CustomerInterface() {
   });
 
   const beerMutation = useMutation({
-    mutationFn: async (data: { type: string }) => {
+    mutationFn: async (data: { type: string; tableNumber: string }) => {
       const res = await apiRequest("POST", "/api/beers/order", data);
       return res.json();
     },
@@ -69,7 +69,7 @@ export default function CustomerInterface() {
       });
       return;
     }
-    beerMutation.mutate({ type: "Creamy Boy" });
+    beerMutation.mutate({ type: "Creamy Boy", tableNumber });
   };
 
   if (loadingTvs || loadingGames) {

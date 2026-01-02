@@ -1,15 +1,14 @@
 import { db } from "./db";
 import {
-  tvs, games, preferences, tvRequests, beerOrders,
+  tvs, games, preferences, requests, beerOrders,
   type Tv, type InsertTv, type UpdateTvRequest,
   type Game, type InsertGame,
   type Preference, type InsertPreference,
-  type TvRequest, type BeerOrder
+  type Request, type BeerOrder
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
-  // ... existing ...
   getTvs(): Promise<Tv[]>;
   getTv(id: number): Promise<Tv | undefined>;
   updateTv(id: number, updates: UpdateTvRequest): Promise<Tv>;
@@ -19,15 +18,12 @@ export interface IStorage {
   createGame(game: InsertGame): Promise<Game>;
   getPreferences(): Promise<Preference | undefined>;
   updatePreferences(prefs: InsertPreference): Promise<Preference>;
-
-  // New
-  createTvRequest(req: { tvId: number, gameId: number }): Promise<TvRequest>;
-  getTvRequests(): Promise<TvRequest[]>;
-  createBeerOrder(type: string): Promise<BeerOrder>;
+  createTvRequest(req: { tvId: number, gameId: number }): Promise<Request>;
+  getTvRequests(): Promise<Request[]>;
+  createBeerOrder(type: string, tableNumber: string): Promise<BeerOrder>;
 }
 
 export class DatabaseStorage implements IStorage {
-  // ... existing methods ...
   async getTvs(): Promise<Tv[]> {
     return await db.select().from(tvs).orderBy(tvs.id);
   }
@@ -87,17 +83,17 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async createTvRequest(req: { tvId: number, gameId: number }): Promise<TvRequest> {
-    const [created] = await db.insert(tvRequests).values(req).returning();
+  async createTvRequest(req: { tvId: number, gameId: number }): Promise<Request> {
+    const [created] = await db.insert(requests).values(req).returning();
     return created;
   }
 
-  async getTvRequests(): Promise<TvRequest[]> {
-    return await db.select().from(tvRequests).orderBy(desc(tvRequests.createdAt));
+  async getTvRequests(): Promise<Request[]> {
+    return await db.select().from(requests).orderBy(desc(requests.createdAt));
   }
 
-  async createBeerOrder(type: string): Promise<BeerOrder> {
-    const [created] = await db.insert(beerOrders).values({ type }).returning();
+  async createBeerOrder(type: string, tableNumber: string): Promise<BeerOrder> {
+    const [created] = await db.insert(beerOrders).values({ type, tableNumber }).returning();
     return created;
   }
 }
