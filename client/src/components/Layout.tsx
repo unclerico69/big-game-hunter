@@ -1,6 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { LayoutDashboard, Tv2, Settings, ListCheck, Zap } from "lucide-react";
 import { clsx } from "clsx";
+import { GiDeer } from "react-icons/gi";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,10 +22,14 @@ export function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <aside className="w-64 border-r border-border bg-card hidden md:flex flex-col fixed h-full z-10">
         <div className="p-6">
-          <h1 className="text-2xl font-display font-bold text-primary flex items-center gap-2">
-            <span className="text-glow">BAR</span>TUNER
+          <h1 className="text-xl font-display font-bold text-primary flex items-center gap-2">
+            <GiDeer className="w-8 h-8" />
+            <div className="flex flex-col leading-none">
+              <span className="text-sm tracking-widest text-muted-foreground">BIG GAME</span>
+              <span className="text-glow tracking-tighter text-2xl">HUNTER</span>
+            </div>
           </h1>
-          <p className="text-xs text-muted-foreground mt-1 tracking-wide uppercase">Venue Control</p>
+          <p className="text-[10px] text-muted-foreground/60 mt-2 tracking-[0.2em] uppercase">Venue Management</p>
         </div>
 
         <nav className="flex-1 px-4 space-y-2 py-4">
