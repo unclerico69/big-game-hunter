@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { scoreGame } from "./engine/relevance";
+import { getLiveGames } from "./api/liveGames";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -39,11 +40,7 @@ export async function registerRoutes(
     }
   });
 
-  // === Games ===
-  app.get(api.games.list.path, async (req, res) => {
-    const games = await storage.getGames();
-    res.json(games);
-  });
+  app.get(api.games.list.path, getLiveGames);
 
   // === Preferences ===
   app.get(api.preferences.get.path, async (req, res) => {
