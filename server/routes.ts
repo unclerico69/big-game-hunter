@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import { scoreGame } from "./engine/relevance";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -72,7 +73,14 @@ export async function registerRoutes(
     // Simple mock logic: Find high relevance games not currently on Main TVs
     const recommendations = [];
     const mainTvs = tvs.filter(t => t.priority === 'Main');
-    const liveGames = games.filter(g => g.status === 'Live' && (g.relevance ?? 0) > 70);
+    const prefs = await storage.getPreferences();
+    
+    const gamesWithScores = games.map(g => ({
+      ...g,
+      relevance: scoreGame(g, prefs)
+    }));
+
+    const liveGames = gamesWithScores.filter(g => g.status === 'Live' && (g.relevance ?? 0) > 70);
 
     // If there's a highly relevant game not on a main TV, suggest it
     for (const game of liveGames) {
