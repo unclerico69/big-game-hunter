@@ -105,6 +105,25 @@ export async function registerRoutes(
     }
   });
 
+  // === Requests ===
+  app.get(api.requests.list.path, async (_req, res) => {
+    const requests = await storage.getTvRequests();
+    res.json(requests);
+  });
+
+  app.post(api.requests.create.path, async (req, res) => {
+    const input = api.requests.create.input.parse(req.body);
+    const request = await storage.createTvRequest(input);
+    res.status(201).json(request);
+  });
+
+  // === Beers ===
+  app.post(api.beers.order.path, async (req, res) => {
+    const input = api.beers.order.input.parse(req.body);
+    const order = await storage.createBeerOrder(input.type);
+    res.status(201).json(order);
+  });
+
   // Seed Data on Startup
   seedDatabase();
 

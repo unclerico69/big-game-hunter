@@ -93,6 +93,38 @@ export const api = {
         200: z.object({ success: z.boolean() }),
       },
     }
+  },
+  requests: {
+    create: {
+      method: 'POST' as const,
+      path: '/api/requests',
+      input: z.object({
+        tvId: z.number(),
+        gameId: z.number(),
+      }),
+      responses: {
+        201: z.object({ id: z.number() }),
+      },
+    },
+    list: {
+      method: 'GET' as const,
+      path: '/api/requests',
+      responses: {
+        200: z.array(z.any()),
+      },
+    }
+  },
+  beers: {
+    order: {
+      method: 'POST' as const,
+      path: '/api/beers/order',
+      input: z.object({
+        type: z.string(),
+      }),
+      responses: {
+        201: z.object({ id: z.number() }),
+      },
+    }
   }
 };
 
