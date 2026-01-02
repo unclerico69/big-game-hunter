@@ -8,6 +8,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // === Health Check ===
+  app.get("/health", (_req, res) => {
+    res.json({ status: "ok" });
+  });
   
   // === TVs ===
   app.get(api.tvs.list.path, async (req, res) => {
