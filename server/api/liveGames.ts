@@ -11,13 +11,15 @@ export async function getLiveGames(req: Request, res: Response) {
   try {
     const games = await storage.getGames();
     const prefs = await storage.getPreferences();
+    const stats = await storage.getPlatformStats();
     
     const liveGames = games
       .filter(g => g.status === 'Live')
       .map(g => ({
         ...g,
         relevanceScore: scoreGame(g, prefs),
-        hotnessScore: computeHotness(g)
+        hotnessScore: computeHotness(g),
+        assignedTvCount: stats[g.id] || 0
       }))
       .sort((a, b) => b.relevanceScore - a.relevanceScore);
 

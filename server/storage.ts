@@ -21,9 +21,21 @@ export interface IStorage {
   createTvRequest(req: { tvId: number, gameId: number }): Promise<Request>;
   getTvRequests(): Promise<Request[]>;
   createBeerOrder(type: string, tableNumber: string): Promise<BeerOrder>;
+  getPlatformStats(): Promise<Record<number, number>>;
 }
 
 export class DatabaseStorage implements IStorage {
+  async getPlatformStats(): Promise<Record<number, number>> {
+    const tvsList = await this.getTvs();
+    const stats: Record<number, number> = {};
+    tvsList.forEach(tv => {
+      if (tv.currentGameId) {
+        stats[tv.currentGameId] = (stats[tv.currentGameId] || 0) + 1;
+      }
+    });
+    return stats;
+  }
+
   async getTvs(): Promise<Tv[]> {
     return await db.select().from(tvs).orderBy(tvs.id);
   }
