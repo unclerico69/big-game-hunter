@@ -46,6 +46,7 @@ export const requests = pgTable("requests", {
 
 export const beerOrders = pgTable("beer_orders", {
   id: serial("id").primaryKey(),
+  type: text("type"),
   tableNumber: text("table_number").notNull(),
   status: text("status").default("pending"),
   createdAt: timestamp("created_at").defaultNow(),
