@@ -1,10 +1,11 @@
 import { Request, Response } from "express";
 import { storage } from "../storage";
 import { scoreGame } from "../engine/relevance";
+import { computeHotness } from "../engine/hotness";
 
 /**
  * GET /api/live-games
- * Returns a list of games with relevance scores based on venue preferences.
+ * Returns a list of games with relevance scores and hotness scores based on venue preferences.
  */
 export async function getLiveGames(req: Request, res: Response) {
   try {
@@ -15,7 +16,8 @@ export async function getLiveGames(req: Request, res: Response) {
       .filter(g => g.status === 'Live')
       .map(g => ({
         ...g,
-        relevanceScore: scoreGame(g, prefs)
+        relevanceScore: scoreGame(g, prefs),
+        hotnessScore: computeHotness(g)
       }))
       .sort((a, b) => b.relevanceScore - a.relevanceScore);
 
