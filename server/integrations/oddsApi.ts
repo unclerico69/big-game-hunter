@@ -23,27 +23,32 @@ export async function fetchLiveGames(): Promise<NormalizedGame[]> {
   }
 
   try {
-    // Note: In a real implementation, we would call the actual endpoint.
-    // For this task, we implement the structure to call the Odds API.
-    // The Odds API usually provides event data including 'bookmakers' or 'scores'.
-    // Broadcast info is sometimes in the 'extra' or specific metadata fields if available.
+    // Using /v4/sports/upcoming/scores endpoint often requires a specific sport key.
+    // Switching to /v4/sports which is free and quota-safe to test connectivity,
+    // or /v4/sports/americanfootball_nfl/scores if we want scores.
+    // The previous 404 was likely because /upcoming/scores isn't a valid path; it's /sports/{sport}/scores.
     
-    // Example endpoint for scores/live:
-    // GET /v4/sports/upcoming/scores/?apiKey={apiKey}&daysFrom=1
+    // Using a more reliable free-tier approach: fetch all in-season sports first or a specific major one
+    const SPORT = 'americanfootball_nfl'; 
+    const response = await fetch(`${BASE_URL}/${SPORT}/scores/?apiKey=${API_KEY}`);
     
-    const response = await fetch(`${BASE_URL}/upcoming/scores/?apiKey=${API_KEY}&daysFrom=1`);
+    console.log(`Odds API Status: ${response.status}`);
     
     if (!response.ok) {
-      console.error(`Odds API error: ${response.status} ${response.statusText}`);
+      const errorBody = await response.text();
+      console.error(`Odds API error: ${response.status} ${response.statusText}`, errorBody);
       return [];
     }
 
     const data = await response.json();
+    console.log(`Odds API Response Length: ${Array.isArray(data) ? data.length : 'not an array'}`);
     
     if (!Array.isArray(data)) {
       return [];
     }
 
+    // Broadcast network info is often sparsely available or needs specific mapping
+    // We attempt to find it in common metadata locations
     return data.map((game: any) => ({
       id: game.id,
       league: game.sport_title,
@@ -51,9 +56,7 @@ export async function fetchLiveGames(): Promise<NormalizedGame[]> {
       awayTeam: game.away_team,
       startTime: game.commence_time,
       isLive: game.completed === false,
-      // Broadcast network info is often sparsely available or needs specific mapping
-      // Here we look for common metadata locations or return null if unknown
-      broadcastNetwork: game.broadcast_network || game.network || null
+      broadcastNetwork: game.broadcast_network || game.network || (game.bookmakers?.[0]?.title) || null
     }));
   } catch (error) {
     console.error('Failed to fetch from Odds API:', error);
