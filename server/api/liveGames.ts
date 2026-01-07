@@ -2,10 +2,11 @@ import { Request, Response } from "express";
 import { storage } from "../storage";
 import { scoreGame } from "../engine/relevance";
 import { computeHotness } from "../engine/hotness";
+import { fetchLiveGames } from "../integrations/oddsApi";
 
 /**
  * GET /api/live-games
- * Returns a list of games with relevance scores and hotness scores based on venue preferences.
+ * Returns a list of games with relevance scores, hotness scores, and broadcast network info.
  */
 export async function getLiveGames(req: Request, res: Response) {
   try {
@@ -13,14 +14,26 @@ export async function getLiveGames(req: Request, res: Response) {
     const prefs = await storage.getPreferences();
     const stats = await storage.getPlatformStats();
     
+    // Fetch external enrichment data
+    const externalGames = await fetchLiveGames();
+    
     const liveGames = games
       .filter(g => g.status === 'Live')
-      .map(g => ({
-        ...g,
-        relevanceScore: scoreGame(g, prefs),
-        hotnessScore: computeHotness(g),
-        assignedTvCount: stats[g.id] || 0
-      }))
+      .map(g => {
+        // Try to find matching game from external API to get broadcast network
+        const externalMatch = externalGames.find(eg => 
+          (eg.homeTeam === g.teamA && eg.awayTeam === g.teamB) ||
+          (eg.homeTeam === g.teamB && eg.awayTeam === g.teamA)
+        );
+
+        return {
+          ...g,
+          relevanceScore: scoreGame(g, prefs),
+          hotnessScore: computeHotness(g),
+          assignedTvCount: stats[g.id] || 0,
+          broadcastNetwork: externalMatch?.broadcastNetwork || null
+        };
+      })
       .sort((a, b) => b.relevanceScore - a.relevanceScore);
 
     res.json(liveGames);
