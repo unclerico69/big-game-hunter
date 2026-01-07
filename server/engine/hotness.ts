@@ -1,22 +1,22 @@
-import { Game } from "@shared/schema";
+export function computeHotness(game: any): number {
+  let score = 0;
 
-/**
- * Pure function to calculate game "hotness" based on platform-wide engagement.
- * Returns a score between 0 and 100.
- */
-export function computeHotness(game: Game, platformStats?: any): number {
-  // Base hotness is related to relevance
-  let hotness = (game.relevance ?? 0) * 0.8;
+  // Game must be live to be hot
+  if (game.status !== "Live") return 0;
 
-  // Simulate platform engagement (e.g. how many other bars are watching this)
-  // Since we aren't storing stats yet, we use a deterministic "hotness"
-  // based on the game ID to ensure stability across polling.
-  const pseudoEngagement = (game.id * 13) % 20;
-  hotness += pseudoEngagement;
+  // Close game late
+  if (typeof game.scoreDiff === "number" && game.scoreDiff <= 7) {
+    score += 30;
+  }
 
-  // League specific multipliers
-  if (game.league === "NFL") hotness += 10;
-  if (game.league === "NBA") hotness += 5;
+  if (typeof game.timeRemaining === "number" && game.timeRemaining <= 300) {
+    score += 30;
+  }
 
-  return Math.min(100, Math.round(hotness));
+  // Overtime / extra time
+  if (game.isOvertime === true) {
+    score += 40;
+  }
+
+  return Math.min(score, 100);
 }
