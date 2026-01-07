@@ -33,9 +33,8 @@ export default function Dashboard() {
   // Helper to find the game playing on a TV
   const getGameForTv = (gameId: number | null) => {
     if (!gameId) return undefined;
-    // In a real app we might fetch all games or specific game, 
-    // here we rely on the live list or fallback to just ID if not found
-    return games?.find(g => g.id === gameId);
+    const game = games?.find(g => g.id === gameId);
+    return game;
   };
 
   const activeTvs = tvs?.filter(tv => tv.status !== "off") || [];
