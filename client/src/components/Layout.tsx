@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Tv2, Settings, Zap } from "lucide-react";
+import { LayoutDashboard, Tv2, Settings, Zap, Calendar } from "lucide-react";
 import { clsx } from "clsx";
 import { GiDeer, GiBeerStein } from "react-icons/gi";
 
@@ -12,6 +12,7 @@ export function Layout({ children }: LayoutProps) {
 
   const navItems = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/games", label: "Schedule", icon: Calendar },
     { href: "/recommendations", label: "Auto-Tuner", icon: Zap },
     { href: "/setup", label: "TV Setup", icon: Tv2 },
     { href: "/preferences", label: "Preferences", icon: Settings },

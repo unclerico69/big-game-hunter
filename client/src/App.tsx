@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import Dashboard from "@/pages/Dashboard";
 import Recommendations from "@/pages/Recommendations";
+import Games from "@/pages/Games";
 import TvSetup from "@/pages/TvSetup";
 import Preferences from "@/pages/Preferences";
 import CustomerInterface from "@/pages/CustomerInterface";
@@ -15,6 +16,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/games" component={Games} />
       <Route path="/recommendations" component={Recommendations} />
       <Route path="/setup" component={TvSetup} />
       <Route path="/preferences" component={Preferences} />
