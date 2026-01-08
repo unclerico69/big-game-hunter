@@ -22,20 +22,35 @@ export async function getLiveGames(req: Request, res: Response) {
 
     // If we have Odds API data, we prefer it. 
     // If not, we fall back to mock games for development/testing.
+    const now = new Date();
     const gamesToProcess = sourceData.length > 0 
-      ? sourceData.map((eg, idx) => ({
-          id: -(idx + 1), // Negative IDs for external games to avoid conflicts
-          title: `${eg.homeTeam} vs ${eg.awayTeam}`,
-          teamA: eg.homeTeam,
-          teamB: eg.awayTeam,
-          league: eg.league,
-          channel: eg.broadcastNetwork || "Unknown",
-          startTime: new Date(eg.startTime),
-          status: eg.isLive ? "Live" : "Scheduled",
-          relevance: 0, // Will be scored below
-          broadcastNetwork: eg.broadcastNetwork
-        }))
-      : mockGames;
+      ? sourceData.map((eg, idx) => {
+          const startTime = new Date(eg.startTime);
+          const hasStarted = startTime <= now;
+          // Determine status based on schedule and live flag
+          const status = (hasStarted && eg.isLive) ? "Live" : "Upcoming";
+
+          return {
+            id: -(idx + 1), // Negative IDs for external games to avoid conflicts
+            title: `${eg.homeTeam} vs ${eg.awayTeam}`,
+            teamA: eg.homeTeam,
+            teamB: eg.awayTeam,
+            league: eg.league,
+            channel: eg.broadcastNetwork || "Unknown",
+            startTime,
+            status,
+            relevance: 0,
+            broadcastNetwork: eg.broadcastNetwork
+          };
+        })
+      : mockGames.map(g => {
+          const startTime = new Date(g.startTime);
+          const hasStarted = startTime <= now;
+          return {
+            ...g,
+            status: hasStarted ? "Live" : "Upcoming"
+          };
+        });
 
     console.log(`[api/games] Serving from: ${dataSourceName} (${gamesToProcess.length} games)`);
 
@@ -51,8 +66,11 @@ export async function getLiveGames(req: Request, res: Response) {
         broadcastNetwork = externalMatch?.broadcastNetwork || null;
       }
 
+      const isLive = g.status === "Live";
+
       // MOCK DATA FOR MVP TESTING: Simulate game state for hotness calculation
-      const mockFields = (g.id === 1 || g.id === -1) ? {
+      // Only apply mock score/time fields if the game is Live
+      const mockFields = isLive ? ((g.id === 1 || g.id === -1) ? {
         scoreDiff: 3,        // Close game (+30)
         timeRemaining: 120,   // Late in game (+30)
         isOvertime: true      // Overtime (+40) -> Total 100
@@ -60,13 +78,17 @@ export async function getLiveGames(req: Request, res: Response) {
         scoreDiff: 15,
         timeRemaining: 1200,
         isOvertime: false
+      }) : {
+        scoreDiff: null,
+        timeRemaining: null,
+        isOvertime: false
       };
 
       return {
         ...g,
         ...mockFields,
         relevanceScore: scoreGame(g, prefs),
-        hotnessScore: computeHotness({ ...g, ...mockFields }),
+        hotnessScore: isLive ? computeHotness({ ...g, ...mockFields }) : 0,
         assignedTvCount: stats[g.id] || 0,
         broadcastNetwork
       };
