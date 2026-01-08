@@ -10,24 +10,49 @@ import { fetchLiveGames } from "../integrations/oddsApi";
  */
 export async function getLiveGames(req: Request, res: Response) {
   try {
-    const games = await storage.getGames();
+    const mockGames = await storage.getGames();
     const prefs = await storage.getPreferences();
     const stats = await storage.getPlatformStats();
     
     // Fetch external enrichment data (Cached within Odds API integration)
     const externalGames = await fetchLiveGames();
     
-    // Process live games and mock them with relevance/hotness for MVP
-    const processedGames = games.map(g => {
-      // Match game from external API for enrichment if available
-      const externalMatch = externalGames.find(eg => 
-        (eg.homeTeam === g.teamA && eg.awayTeam === g.teamB) ||
-        (eg.homeTeam === g.teamB && eg.awayTeam === g.teamA)
-      );
+    let sourceData = externalGames.length > 0 ? externalGames : [];
+    let dataSourceName = externalGames.length > 0 ? "Odds API" : "Mock Fallback";
+
+    // If we have Odds API data, we prefer it. 
+    // If not, we fall back to mock games for development/testing.
+    const gamesToProcess = sourceData.length > 0 
+      ? sourceData.map((eg, idx) => ({
+          id: -(idx + 1), // Negative IDs for external games to avoid conflicts
+          title: `${eg.homeTeam} vs ${eg.awayTeam}`,
+          teamA: eg.homeTeam,
+          teamB: eg.awayTeam,
+          league: eg.league,
+          channel: eg.broadcastNetwork || "Unknown",
+          startTime: new Date(eg.startTime),
+          status: eg.isLive ? "Live" : "Scheduled",
+          relevance: 0, // Will be scored below
+          broadcastNetwork: eg.broadcastNetwork
+        }))
+      : mockGames;
+
+    console.log(`[api/games] Serving from: ${dataSourceName} (${gamesToProcess.length} games)`);
+
+    // Process games and mock them with relevance/hotness for MVP
+    const processedGames = gamesToProcess.map(g => {
+      // If using mock games, we still try to enrich with broadcast network if available
+      let broadcastNetwork = (g as any).broadcastNetwork || null;
+      if (dataSourceName === "Mock Fallback") {
+        const externalMatch = externalGames.find(eg => 
+          (eg.homeTeam === g.teamA && eg.awayTeam === g.teamB) ||
+          (eg.homeTeam === g.teamB && eg.awayTeam === g.teamA)
+        );
+        broadcastNetwork = externalMatch?.broadcastNetwork || null;
+      }
 
       // MOCK DATA FOR MVP TESTING: Simulate game state for hotness calculation
-      // In a production app, these fields would come from a real-time score provider
-      const mockFields = g.id === 1 ? {
+      const mockFields = (g.id === 1 || g.id === -1) ? {
         scoreDiff: 3,        // Close game (+30)
         timeRemaining: 120,   // Late in game (+30)
         isOvertime: true      // Overtime (+40) -> Total 100
@@ -43,7 +68,7 @@ export async function getLiveGames(req: Request, res: Response) {
         relevanceScore: scoreGame(g, prefs),
         hotnessScore: computeHotness({ ...g, ...mockFields }),
         assignedTvCount: stats[g.id] || 0,
-        broadcastNetwork: externalMatch?.broadcastNetwork || null
+        broadcastNetwork
       };
     });
 
