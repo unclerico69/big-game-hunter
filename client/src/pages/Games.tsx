@@ -73,7 +73,7 @@ export default function Games() {
   }
 
   const liveGames = games?.filter((g) => g.status === "Live") || [];
-  const upcomingGames = games?.filter((g) => g.status === "Upcoming") || [];
+  const otherGames = games?.filter((g) => g.status !== "Live") || [];
 
   return (
     <Layout>
@@ -89,8 +89,8 @@ export default function Games() {
             <span className="text-xs text-muted-foreground uppercase tracking-wider text-center">Live</span>
           </div>
           <div className="px-4 py-2 bg-card rounded-lg border border-border flex flex-col items-center min-w-[100px]">
-             <span className="text-2xl font-display font-bold text-foreground">{upcomingGames.length}</span>
-             <span className="text-xs text-muted-foreground uppercase tracking-wider text-center">Upcoming</span>
+             <span className="text-2xl font-display font-bold text-foreground">{otherGames.length}</span>
+             <span className="text-xs text-muted-foreground uppercase tracking-wider text-center">Scheduled</span>
           </div>
         </div>
       </header>
@@ -125,14 +125,14 @@ export default function Games() {
           </section>
         )}
 
-        {upcomingGames.length > 0 && (
+        {otherGames.length > 0 && (
           <section>
             <div className="flex items-center gap-2 mb-6">
               <div className="w-2 h-6 bg-primary rounded-sm" />
-              <h2 className="text-xl font-bold text-foreground">Upcoming Games</h2>
+              <h2 className="text-xl font-bold text-foreground">Scheduled Games</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {upcomingGames.map((game) => (
+              {otherGames.map((game) => (
                 <GameCard 
                   key={game.id} 
                   game={game} 
@@ -154,7 +154,7 @@ export default function Games() {
           </section>
         )}
 
-        {liveGames.length === 0 && upcomingGames.length === 0 && (
+        {liveGames.length === 0 && otherGames.length === 0 && (
           <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
             <Calendar className="w-12 h-12 mx-auto mb-4 opacity-20" />
             <p className="text-muted-foreground text-lg">No games found in the schedule.</p>

@@ -16,19 +16,33 @@ export interface NormalizedGame {
   broadcastNetwork: string | null;
 }
 
+// MVP Caching Strategy: Stale-while-revalidate pattern to respect free-tier limits
+interface ApiCache {
+  data: NormalizedGame[];
+  lastFetched: number;
+}
+
+let oddsCache: ApiCache | null = null;
+const CACHE_TTL = 90 * 60 * 1000; // 90 minutes in milliseconds
+
 export async function fetchLiveGames(): Promise<NormalizedGame[]> {
+  const now = Date.now();
+
+  // Return cached data if valid
+  if (oddsCache && (now - oddsCache.lastFetched) < CACHE_TTL) {
+    console.log("Odds API: Serving from cache");
+    return oddsCache.data;
+  }
+
   if (!API_KEY) {
     console.error('ODDS_API_KEY is not defined in environment variables.');
-    return [];
+    return oddsCache?.data || [];
   }
 
   try {
-    // Using /v4/sports/upcoming/scores endpoint often requires a specific sport key.
-    // Switching to /v4/sports which is free and quota-safe to test connectivity,
-    // or /v4/sports/americanfootball_nfl/scores if we want scores.
-    // The previous 404 was likely because /upcoming/scores isn't a valid path; it's /sports/{sport}/scores.
+    console.log("Odds API: Fetching fresh data...");
     
-    // Using a more reliable free-tier approach: fetch all in-season sports first or a specific major one
+    // Using a more reliable free-tier approach: fetch major sports
     const SPORT = 'americanfootball_nfl'; 
     const response = await fetch(`${BASE_URL}/${SPORT}/scores/?apiKey=${API_KEY}`);
     
@@ -37,19 +51,18 @@ export async function fetchLiveGames(): Promise<NormalizedGame[]> {
     if (!response.ok) {
       const errorBody = await response.text();
       console.error(`Odds API error: ${response.status} ${response.statusText}`, errorBody);
-      return [];
+      // Fallback to cache on error
+      return oddsCache?.data || [];
     }
 
     const data = await response.json();
     console.log(`Odds API Response Length: ${Array.isArray(data) ? data.length : 'not an array'}`);
     
     if (!Array.isArray(data)) {
-      return [];
+      return oddsCache?.data || [];
     }
 
-    // Broadcast network info is often sparsely available or needs specific mapping
-    // We attempt to find it in common metadata locations
-    return data.map((game: any) => ({
+    const normalizedData: NormalizedGame[] = data.map((game: any) => ({
       id: game.id,
       league: game.sport_title,
       homeTeam: game.home_team,
@@ -58,8 +71,17 @@ export async function fetchLiveGames(): Promise<NormalizedGame[]> {
       isLive: game.completed === false,
       broadcastNetwork: game.broadcast_network || game.network || (game.bookmakers?.[0]?.title) || null
     }));
+
+    // Update cache
+    oddsCache = {
+      data: normalizedData,
+      lastFetched: now
+    };
+
+    return normalizedData;
   } catch (error) {
     console.error('Failed to fetch from Odds API:', error);
-    return [];
+    // Fallback to cache on error
+    return oddsCache?.data || [];
   }
 }
