@@ -6,7 +6,7 @@ import { Loader2, AlertTriangle } from "lucide-react";
 
 export default function Dashboard() {
   const { data: tvs, isLoading: tvsLoading, error: tvsError } = useTvs();
-  const { data: games, isLoading: gamesLoading } = useGames("Live");
+  const { data: games, isLoading: gamesLoading } = useGames();
 
   if (tvsLoading || gamesLoading) {
     return (
@@ -39,6 +39,7 @@ export default function Dashboard() {
 
   const activeTvs = tvs?.filter(tv => tv.status !== "off") || [];
   const offTvs = tvs?.filter(tv => tv.status === "off") || [];
+  const liveGamesCount = games?.filter(g => g.status === "Live").length || 0;
 
   return (
     <Layout>
@@ -54,7 +55,7 @@ export default function Dashboard() {
             <span className="text-xs text-muted-foreground uppercase tracking-wider">Active TVs</span>
           </div>
           <div className="px-4 py-2 bg-card rounded-lg border border-border flex flex-col items-center min-w-[100px]">
-             <span className="text-2xl font-display font-bold text-foreground">{games?.length || 0}</span>
+             <span className="text-2xl font-display font-bold text-foreground">{liveGamesCount}</span>
              <span className="text-xs text-muted-foreground uppercase tracking-wider">Live Games</span>
           </div>
         </div>
