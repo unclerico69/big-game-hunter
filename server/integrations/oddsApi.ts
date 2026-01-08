@@ -43,34 +43,29 @@ export async function fetchLiveGames(): Promise<NormalizedGame[]> {
     console.log("Odds API: Fetching fresh data...");
     
     // Using a more reliable free-tier approach: fetch major sports
-    const SPORT = 'americanfootball_nfl'; 
-    const response = await fetch(`${BASE_URL}/${SPORT}/scores/?apiKey=${API_KEY}`);
-    
-    console.log(`Odds API Status: ${response.status}`);
-    
-    if (!response.ok) {
-      const errorBody = await response.text();
-      console.error(`Odds API error: ${response.status} ${response.statusText}`, errorBody);
-      // Fallback to cache on error
-      return oddsCache?.data || [];
-    }
+    const SPORTS = ['americanfootball_nfl', 'icehockey_nhl', 'basketball_nba', 'baseball_mlb']; 
+    const normalizedData: NormalizedGame[] = [];
 
-    const data = await response.json();
-    console.log(`Odds API Response Length: ${Array.isArray(data) ? data.length : 'not an array'}`);
-    
-    if (!Array.isArray(data)) {
-      return oddsCache?.data || [];
+    for (const sport of SPORTS) {
+      const response = await fetch(`${BASE_URL}/${sport}/scores/?apiKey=${API_KEY}`);
+      console.log(`Odds API Status for ${sport}: ${response.status}`);
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data)) {
+          const sportNormalized = data.map((game: any) => ({
+            id: game.id,
+            league: game.sport_title,
+            homeTeam: game.home_team,
+            awayTeam: game.away_team,
+            startTime: game.commence_time,
+            isLive: game.completed === false,
+            broadcastNetwork: game.broadcast_network || game.network || (game.bookmakers?.[0]?.title) || null
+          }));
+          normalizedData.push(...sportNormalized);
+        }
+      }
     }
-
-    const normalizedData: NormalizedGame[] = data.map((game: any) => ({
-      id: game.id,
-      league: game.sport_title,
-      homeTeam: game.home_team,
-      awayTeam: game.away_team,
-      startTime: game.commence_time,
-      isLive: game.completed === false,
-      broadcastNetwork: game.broadcast_network || game.network || (game.bookmakers?.[0]?.title) || null
-    }));
 
     // Update cache
     oddsCache = {
