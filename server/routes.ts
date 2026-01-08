@@ -111,11 +111,36 @@ export async function registerRoutes(
     if (game) {
         await storage.updateTv(tvId, {
             currentGameId: game.id,
-            currentChannel: game.channel
+            currentChannel: game.channel,
+            manualOverride: true // Explicitly disable auto-tuner
         });
         res.json({ success: true });
     } else {
         res.status(404).json({ success: false, message: "Game not found" });
+    }
+  });
+
+  // === Manual Assignment ===
+  app.post("/api/tvs/:tvId/assign-game", async (req, res) => {
+    try {
+      const tvId = Number(req.params.tvId);
+      const { gameId } = req.body;
+      
+      const game = await storage.getGame(gameId);
+      if (!game) {
+        return res.status(404).json({ message: "Game not found" });
+      }
+
+      const updatedTv = await storage.updateTv(tvId, {
+        currentGameId: game.id,
+        currentChannel: game.channel,
+        manualOverride: true // Disable auto-tuner for this TV
+      });
+
+      res.json(updatedTv);
+    } catch (error) {
+      console.error("Manual assignment error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
