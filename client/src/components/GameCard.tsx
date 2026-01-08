@@ -6,9 +6,10 @@ import { clsx } from "clsx";
 interface GameCardProps {
   game: Game & { hotnessScore?: number };
   compact?: boolean;
+  action?: React.ReactNode;
 }
 
-export function GameCard({ game, compact = false }: GameCardProps) {
+export function GameCard({ game, compact = false, action }: GameCardProps) {
   const isLive = game.status === "Live";
   const isHot = (game.hotnessScore ?? 0) > 50;
 
@@ -94,6 +95,7 @@ export function GameCard({ game, compact = false }: GameCardProps) {
               Hot Game
             </div>
           )}
+          {action && <div className="ml-auto">{action}</div>}
         </div>
       </div>
     </div>

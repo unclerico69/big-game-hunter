@@ -1,10 +1,40 @@
+import { useState } from "react";
 import { useGames } from "@/hooks/use-games";
+import { useTvs } from "@/hooks/use-tvs";
 import { Layout } from "@/components/Layout";
 import { GameCard } from "@/components/GameCard";
-import { Loader2, Calendar } from "lucide-react";
+import { Loader2, Calendar, Tv } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Games() {
   const { data: games, isLoading } = useGames();
+  const { data: tvs } = useTvs();
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
+  const [selectedTvId, setSelectedTvId] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleAssign = () => {
+    console.log(`Assigning Game ID: ${selectedGameId} to TV ID: ${selectedTvId}`);
+    setIsModalOpen(false);
+    setSelectedGameId(null);
+    setSelectedTvId("");
+  };
 
   if (isLoading) {
     return (
@@ -48,7 +78,22 @@ export default function Games() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {liveGames.map((game) => (
-                <GameCard key={game.id} game={game} />
+                <GameCard 
+                  key={game.id} 
+                  game={game} 
+                  action={
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => {
+                        setSelectedGameId(game.id);
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      Assign to TV
+                    </Button>
+                  }
+                />
               ))}
             </div>
           </section>
@@ -62,7 +107,22 @@ export default function Games() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {upcomingGames.map((game) => (
-                <GameCard key={game.id} game={game} />
+                <GameCard 
+                  key={game.id} 
+                  game={game} 
+                  action={
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      onClick={() => {
+                        setSelectedGameId(game.id);
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      Assign to TV
+                    </Button>
+                  }
+                />
               ))}
             </div>
           </section>
@@ -75,6 +135,41 @@ export default function Games() {
           </div>
         )}
       </div>
+
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Assign Game to TV</DialogTitle>
+            <DialogDescription>
+              Select a TV display to broadcast this game.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4">
+            <Select value={selectedTvId} onValueChange={setSelectedTvId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a TV..." />
+              </SelectTrigger>
+              <SelectContent>
+                {tvs?.map((tv) => (
+                  <SelectItem key={tv.id} value={tv.id.toString()}>
+                    {tv.name} ({tv.location})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAssign} disabled={!selectedTvId}>
+              Confirm Assignment
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 }
