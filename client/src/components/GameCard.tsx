@@ -4,18 +4,20 @@ import { format } from "date-fns";
 import { clsx } from "clsx";
 
 interface GameCardProps {
-  game: Game & { hotnessScore?: number };
+  game: Game & { hotnessScore?: number; relevanceScore?: number; reasons?: string[] };
   compact?: boolean;
   action?: React.ReactNode;
 }
 
 export function GameCard({ game, compact = false, action }: GameCardProps) {
   const isLive = game.status === "Live";
-  const isHot = (game.hotnessScore ?? 0) > 50;
+  const hotness = game.hotnessScore ?? 0;
+  const relevance = game.relevanceScore ?? game.relevance ?? 0;
+  const isHot = hotness > 50;
 
   const relevanceColor = 
-    game.relevance! > 80 ? "bg-green-500" :
-    game.relevance! > 50 ? "bg-yellow-500" : "bg-slate-500";
+    relevance > 80 ? "bg-green-500" :
+    relevance > 50 ? "bg-yellow-500" : "bg-slate-500";
 
   if (compact) {
     return (
@@ -36,7 +38,7 @@ export function GameCard({ game, compact = false, action }: GameCardProps) {
         </div>
         <div className="text-right">
            <div className={`text-xs font-bold px-2 py-0.5 rounded-full inline-block mb-1 bg-secondary`}>
-             {game.relevance}% Match
+             {relevance}% Match
            </div>
         </div>
       </div>
@@ -49,7 +51,7 @@ export function GameCard({ game, compact = false, action }: GameCardProps) {
       <div className="absolute top-0 left-0 bottom-0 w-1 bg-secondary">
         <div 
           className={clsx("w-full transition-all duration-500", relevanceColor)} 
-          style={{ height: `${game.relevance}%` }} 
+          style={{ height: `${relevance}%` }} 
         />
       </div>
 
@@ -85,14 +87,14 @@ export function GameCard({ game, compact = false, action }: GameCardProps) {
         
         <div className="mt-4 pt-4 border-t border-border flex justify-between items-center">
           <div className="flex items-center gap-1.5">
-            <Star className={clsx("w-4 h-4", game.relevance! > 80 ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
-            <span className="text-sm font-semibold">{game.relevance}</span>
+            <Star className={clsx("w-4 h-4", relevance > 80 ? "text-yellow-400 fill-yellow-400" : "text-muted-foreground")} />
+            <span className="text-sm font-semibold">{relevance}</span>
             <span className="text-xs text-muted-foreground">Relevance</span>
           </div>
           {isHot && (
             <div className="flex items-center gap-1 text-orange-500 font-bold text-xs uppercase tracking-tighter">
               <Flame className="w-3 h-3 fill-orange-500" />
-              Hot Game
+              Hotness: {hotness}
             </div>
           )}
           {action && <div className="ml-auto">{action}</div>}
