@@ -1,38 +1,60 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { usePreferences, useUpdatePreferences } from "@/hooks/use-preferences";
-import { Loader2, Save, ArrowUp, ArrowDown, Trash2, Plus } from "lucide-react";
+import { Loader2, Save, ArrowUp, ArrowDown, Trophy, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
+import { TEAMS } from "@shared/data/teams";
+import { MARKETS } from "@shared/data/markets";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 
 export default function Preferences() {
   const { data: prefs, isLoading } = usePreferences();
   const updatePrefs = useUpdatePreferences();
 
-  // Local state for form
   const [leagues, setLeagues] = useState<string[]>([]);
-  const [teams, setTeams] = useState<string[]>([]);
-  const [newTeam, setNewTeam] = useState("");
+  const [favoriteTeams, setFavoriteTeams] = useState<{ id: string; priority: number }[]>([]);
+  const [favoriteMarkets, setFavoriteMarkets] = useState<{ id: string; priority: number }[]>([]);
 
-  // Sync state when data loads
   useEffect(() => {
     if (prefs) {
       setLeagues(prefs.leaguePriority || []);
-      setTeams(prefs.favoriteTeams || []);
+      setFavoriteTeams((prefs.favoriteTeams as any[]) || []);
+      setFavoriteMarkets((prefs.favoriteMarkets as any[]) || []);
     }
   }, [prefs]);
 
   const handleSave = () => {
     updatePrefs.mutate({
       leaguePriority: leagues,
-      favoriteTeams: teams,
+      favoriteTeams,
+      favoriteMarkets,
       hardRules: prefs?.hardRules || {}
     }, {
       onSuccess: () => toast({ title: "Preferences Saved", description: "Algorithm weights updated." })
+    });
+  };
+
+  const toggleTeam = (teamId: string) => {
+    setFavoriteTeams(prev => {
+      const exists = prev.find(t => t.id === teamId);
+      if (exists) {
+        return prev.filter(t => t.id !== teamId);
+      }
+      return [...prev, { id: teamId, priority: prev.length }];
+    });
+  };
+
+  const toggleMarket = (marketId: string) => {
+    setFavoriteMarkets(prev => {
+      const exists = prev.find(m => m.id === marketId);
+      if (exists) {
+        return prev.filter(m => m.id !== marketId);
+      }
+      return [...prev, { id: marketId, priority: prev.length }];
     });
   };
 
@@ -44,17 +66,6 @@ export default function Preferences() {
       [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
     }
     setLeagues(newOrder);
-  };
-
-  const addTeam = () => {
-    if (newTeam && !teams.includes(newTeam)) {
-      setTeams([...teams, newTeam]);
-      setNewTeam("");
-    }
-  };
-
-  const removeTeam = (team: string) => {
-    setTeams(teams.filter(t => t !== team));
   };
 
   if (isLoading) {
@@ -81,9 +92,59 @@ export default function Preferences() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        
-        {/* League Priority Card */}
         <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" />
+              Home Teams
+            </CardTitle>
+            <CardDescription>Select teams to prioritize.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {TEAMS.map(team => (
+                <div key={team.id} className="flex items-center space-x-3">
+                  <Checkbox 
+                    id={team.id} 
+                    checked={favoriteTeams.some(t => t.id === team.id)}
+                    onCheckedChange={() => toggleTeam(team.id)}
+                  />
+                  <Label htmlFor={team.id} className="text-sm font-medium leading-none">
+                    {team.name} ({team.league})
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="w-5 h-5 text-primary" />
+              Local Markets
+            </CardTitle>
+            <CardDescription>Boost games of interest for these regions.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {MARKETS.map(market => (
+                <div key={market.id} className="flex items-center space-x-3">
+                  <Checkbox 
+                    id={market.id} 
+                    checked={favoriteMarkets.some(m => m.id === market.id)}
+                    onCheckedChange={() => toggleMarket(market.id)}
+                  />
+                  <Label htmlFor={market.id} className="text-sm font-medium leading-none">
+                    {market.name}
+                  </Label>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-card border-border md:col-span-2">
           <CardHeader>
             <CardTitle>League Priority</CardTitle>
             <CardDescription>Order determines which games take precedence when times conflict.</CardDescription>
@@ -111,43 +172,11 @@ export default function Preferences() {
                   </div>
                 </div>
               ))}
-              {leagues.length === 0 && <p className="text-muted-foreground text-sm">No leagues configured.</p>}
             </div>
           </CardContent>
         </Card>
 
-        {/* Favorite Teams Card */}
-        <Card className="bg-card border-border">
-           <CardHeader>
-            <CardTitle>Home Teams</CardTitle>
-            <CardDescription>Always prioritize games featuring these teams.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex gap-2 mb-4">
-              <Input 
-                placeholder="Add team (e.g. Lakers)" 
-                value={newTeam} 
-                onChange={e => setNewTeam(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addTeam()}
-              />
-              <Button size="icon" onClick={addTeam}><Plus className="w-4 h-4" /></Button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {teams.map(team => (
-                <span key={team} className="inline-flex items-center gap-1 bg-primary/20 text-primary border border-primary/30 px-3 py-1 rounded-full text-sm font-medium animate-in fade-in zoom-in">
-                  {team}
-                  <button onClick={() => removeTeam(team)} className="hover:text-foreground">
-                    <Trash2 className="w-3 h-3 ml-1" />
-                  </button>
-                </span>
-              ))}
-               {teams.length === 0 && <p className="text-muted-foreground text-sm italic">No favorites added.</p>}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* System Rules Card */}
-         <Card className="bg-card border-border md:col-span-2">
+        <Card className="bg-card border-border md:col-span-2">
            <CardHeader>
             <CardTitle>System Rules</CardTitle>
             <CardDescription>Hard constraints for the automation engine.</CardDescription>
