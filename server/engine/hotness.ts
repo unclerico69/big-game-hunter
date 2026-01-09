@@ -42,7 +42,8 @@ export function computeBaseHotness(game: any): number {
  * Returns a rounded integer between 0 and 100.
  */
 export function computeFinalHotness(game: any, preferences: any): number {
-  let score = computeBaseHotness(game);
+  const baseScore = computeBaseHotness(game);
+  let score = baseScore;
 
   if (!preferences) return Math.round(score);
 
@@ -67,9 +68,14 @@ export function computeFinalHotness(game: any, preferences: any): number {
     team.toLowerCase() === game.teamB?.toLowerCase()
   );
 
+  let homeBoost = 0;
   if (isFavorite) {
-    score += 20;
+    homeBoost = 20;
+    score += homeBoost;
   }
+
+  // Minimal logging for debugging
+  console.log(`[hotness] ${game.title}: Base=${baseScore.toFixed(1)}, LeagueMult=${multiplier}x, HomeBoost=+${homeBoost}, Final=${Math.round(score)}`);
 
   // Guardrails: Clamp 0-100 and round to integer
   return Math.max(0, Math.min(100, Math.round(score)));
