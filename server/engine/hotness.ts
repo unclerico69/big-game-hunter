@@ -63,10 +63,11 @@ export function computeFinalHotness(game: any, preferences: any): number {
 
   // 2. Home Teams Boost
   const favoriteTeams = preferences.favoriteTeams || [];
-  const isFavorite = favoriteTeams.some((team: string) => 
-    team.toLowerCase() === game.teamA?.toLowerCase() || 
-    team.toLowerCase() === game.teamB?.toLowerCase()
-  );
+  const isFavorite = favoriteTeams.some((team: any) => {
+    const teamName = team.name || team;
+    return teamName.toLowerCase() === game.teamA?.toLowerCase() || 
+           teamName.toLowerCase() === game.teamB?.toLowerCase();
+  });
 
   let homeBoost = 0;
   if (isFavorite) {

@@ -21,18 +21,33 @@ export function calculateRelevance(game: any, preferences?: Preference, stats?: 
 
   // 2. Additive Boosts
   
-  // Home Team Boost (+15)
-  const favoriteTeams = preferences.favoriteTeams ?? [];
-  const matchedHomeTeam = favoriteTeams.find(team => 
-    team && (
-      game.teamA?.toLowerCase().includes(team.toLowerCase()) || 
-      game.teamB?.toLowerCase().includes(team.toLowerCase())
-    )
-  );
+  // Structured Team Boost
+  const favoriteTeams = (preferences.favoriteTeams as any[]) ?? [];
+  const matchedTeam = favoriteTeams.find(t => {
+    const teamName = t.name || t;
+    return teamName && (
+      game.teamA?.toLowerCase().includes(teamName.toLowerCase()) || 
+      game.teamB?.toLowerCase().includes(teamName.toLowerCase())
+    );
+  });
 
-  if (matchedHomeTeam) {
-    score += 15;
-    reasons.push(`Includes a preferred home team (${matchedHomeTeam})`);
+  if (matchedTeam) {
+    const priority = typeof matchedTeam === 'object' ? (matchedTeam.priority || 0) : 0;
+    const boost = 20 - priority; // Priority 0 = +20, Priority 5 = +15
+    score += Math.max(5, boost);
+    const teamName = typeof matchedTeam === 'object' ? matchedTeam.name : matchedTeam;
+    reasons.push(`Preferred team (${teamName})`);
+  }
+
+  // Market Boost
+  const favoriteMarkets = (preferences.favoriteMarkets as any[]) ?? [];
+  const gameMarketId = (game as any).marketId;
+  const matchedMarket = favoriteMarkets.find(m => m.id === gameMarketId);
+
+  if (matchedMarket) {
+    const boost = 15 - (matchedMarket.priority || 0);
+    score += Math.max(5, boost);
+    reasons.push(`Local market interest (${matchedMarket.name})`);
   }
 
   // League Priority Boosts

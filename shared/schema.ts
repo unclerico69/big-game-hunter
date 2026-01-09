@@ -31,7 +31,8 @@ export const games = pgTable("games", {
 
 export const preferences = pgTable("preferences", {
   id: serial("id").primaryKey(),
-  favoriteTeams: text("favorite_teams").array(),
+  favoriteTeams: jsonb("favorite_teams").$type<{ id: string; name: string; league: string; priority: number }[]>().default([]),
+  favoriteMarkets: jsonb("favorite_markets").$type<{ id: string; name: string; priority: number }[]>().default([]),
   leaguePriority: text("league_priority").array(),
   hardRules: jsonb("hard_rules"),
 });
