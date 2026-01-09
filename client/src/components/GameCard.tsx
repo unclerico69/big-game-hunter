@@ -97,6 +97,20 @@ export function GameCard({ game, compact = false, action }: GameCardProps) {
           )}
           {action && <div className="ml-auto">{action}</div>}
         </div>
+        {(game as any).reasons && (game as any).reasons.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border/50">
+            <div className="flex flex-wrap gap-1.5">
+              {(game as any).reasons.map((reason: string, i: number) => (
+                <span 
+                  key={i} 
+                  className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-secondary/50 text-secondary-foreground border border-secondary"
+                >
+                  {reason}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

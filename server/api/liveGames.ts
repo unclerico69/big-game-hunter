@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { storage } from "../storage";
-import { scoreGame } from "../engine/relevance";
+import { calculateRelevance } from "../engine/relevance";
 import { computeBaseHotness, computeFinalHotness } from "../engine/hotness";
 import { fetchLiveGames } from "../integrations/oddsApi";
 
@@ -84,11 +84,15 @@ export async function getLiveGames(req: Request, res: Response) {
         isOvertime: false
       };
 
+      const hotnessScore = computeFinalHotness({ ...g, ...mockFields }, prefs);
+      const relevanceResult = calculateRelevance({ ...g, ...mockFields, hotnessScore }, prefs, stats);
+
       return {
         ...g,
         ...mockFields,
-        relevanceScore: scoreGame(g, prefs),
-        hotnessScore: computeFinalHotness({ ...g, ...mockFields }, prefs),
+        relevanceScore: relevanceResult.score,
+        reasons: relevanceResult.reasons,
+        hotnessScore,
         assignedTvCount: stats[g.id] || 0,
         broadcastNetwork
       };

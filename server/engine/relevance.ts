@@ -1,38 +1,89 @@
 import { Game, Preference } from "@shared/schema";
 
+export interface RelevanceResult {
+  score: number;
+  reasons: string[];
+}
+
 /**
- * Pure function to calculate game relevance score based on venue preferences.
- * Returns a score between 0 and 100.
+ * Pure function to calculate game relevance score and generate human-readable reasons.
+ * Combines hotness, preferences, and platform signals.
  */
-export function scoreGame(game: Game, preferences?: Preference): number {
-  let score = game.relevance ?? 0;
+export function calculateRelevance(game: any, preferences?: Preference, stats?: Record<number, number>): RelevanceResult {
+  let score = 0;
+  const reasons: string[] = [];
 
-  if (!preferences) return score;
+  // 1. Status Base
+  if (game.status === "Live") {
+    score += 40;
+    reasons.push("Live game");
+  } else if (game.status === "Upcoming") {
+    score += 10;
+    reasons.push("Upcoming game");
+  }
 
-  // Boost for favorite teams
-  const teams = [game.teamA, game.teamB];
-  const favoriteTeams = preferences.favoriteTeams ?? [];
+  if (!preferences) {
+    return { score: Math.min(100, score), reasons };
+  }
+
+  // 2. League Priority
+  const leaguePriority = preferences.leaguePriority ?? ["NFL", "NBA", "MLB", "NHL"];
+  const league = game.league?.toUpperCase() || "";
+  const priorityIndex = leaguePriority.findIndex(l => l.toUpperCase() === league);
   
-  const hasFavoriteTeam = teams.some(team => 
-    team && favoriteTeams.some(fav => team.toLowerCase().includes(fav.toLowerCase()))
+  if (priorityIndex !== -1) {
+    // Top 2 leagues get significant boosts
+    if (priorityIndex === 0) {
+      score += 30;
+      reasons.push(`High league priority (${league})`);
+    } else if (priorityIndex === 1) {
+      score += 20;
+      reasons.push(`Preferred league (${league})`);
+    } else {
+      score += 10;
+      reasons.push(`Standard league (${league})`);
+    }
+  }
+
+  // 3. Favorite Teams
+  const favoriteTeams = preferences.favoriteTeams ?? [];
+  const hasFavoriteTeam = favoriteTeams.some(team => 
+    team && (
+      game.teamA?.toLowerCase().includes(team.toLowerCase()) || 
+      game.teamB?.toLowerCase().includes(team.toLowerCase())
+    )
   );
 
   if (hasFavoriteTeam) {
-    score += 50;
+    score += 30;
+    reasons.push("Includes a preferred home team");
   }
 
-  // Multiplier for league priority
-  const leaguePriority = preferences.leaguePriority ?? [];
-  const priorityIndex = leaguePriority.indexOf(game.league);
-  
-  if (priorityIndex !== -1) {
-    // Top priority (index 0) gets most boost
-    const boost = (leaguePriority.length - priorityIndex) * 5;
-    score += boost;
+  // 4. Platform Popularity (Social Signal)
+  const assignedCount = stats?.[game.id] || 0;
+  if (assignedCount >= 2) {
+    score += 10;
+    reasons.push("Highly watched by other TVs");
+  } else if (assignedCount === 1) {
+    score += 5;
+    reasons.push("Currently showing on another TV");
   }
 
-  // Hard rules (e.g., "Never show News on Main Bar")
-  // This is a placeholder for more complex rule logic
-  
-  return Math.min(100, score);
+  // 5. Hotness Influence (capped contribution to relevance)
+  if (game.hotnessScore > 80) {
+    score += 15;
+    reasons.push("High excitement level");
+  }
+
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    reasons: reasons.slice(0, 4) // Keep reasons concise
+  };
+}
+
+/**
+ * Legacy wrapper for backward compatibility
+ */
+export function scoreGame(game: Game, preferences?: Preference): number {
+  return calculateRelevance(game, preferences).score;
 }
