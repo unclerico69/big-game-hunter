@@ -1,3 +1,5 @@
+import { TEAMS } from "../../shared/data/teams";
+
 /**
  * Computes base hotness score derived only from game state.
  * Returns a number between 0 and 100.
@@ -63,10 +65,11 @@ export function computeFinalHotness(game: any, preferences: any): number {
 
   // 2. Home Teams Boost
   const favoriteTeams = preferences.favoriteTeams || [];
-  const isFavorite = favoriteTeams.some((team: any) => {
-    const teamName = team.name || team;
-    return teamName.toLowerCase() === game.teamA?.toLowerCase() || 
-           teamName.toLowerCase() === game.teamB?.toLowerCase();
+  const isFavorite = favoriteTeams.some((fav: any) => {
+    const teamData = TEAMS.find(t => t.id === fav.id);
+    if (!teamData) return false;
+    return teamData.name.toLowerCase() === game.teamA?.toLowerCase() || 
+           teamData.name.toLowerCase() === game.teamB?.toLowerCase();
   });
 
   let homeBoost = 0;

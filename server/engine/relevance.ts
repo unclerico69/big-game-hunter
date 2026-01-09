@@ -1,4 +1,6 @@
 import { Game, Preference } from "@shared/schema";
+import { TEAMS } from "../../shared/data/teams";
+import { MARKETS } from "../../shared/data/markets";
 
 export interface RelevanceResult {
   score: number;
@@ -23,31 +25,39 @@ export function calculateRelevance(game: any, preferences?: Preference, stats?: 
   
   // Structured Team Boost
   const favoriteTeams = (preferences.favoriteTeams as any[]) ?? [];
-  const matchedTeam = favoriteTeams.find(t => {
-    const teamName = t.name || t;
-    return teamName && (
-      game.teamA?.toLowerCase().includes(teamName.toLowerCase()) || 
-      game.teamB?.toLowerCase().includes(teamName.toLowerCase())
+  const matchedFavorite = favoriteTeams.find(fav => {
+    const teamData = TEAMS.find(t => t.id === fav.id);
+    if (!teamData) return false;
+    return (
+      game.teamA?.toLowerCase().includes(teamData.name.toLowerCase()) || 
+      game.teamB?.toLowerCase().includes(teamData.name.toLowerCase())
     );
   });
 
-  if (matchedTeam) {
-    const priority = typeof matchedTeam === 'object' ? (matchedTeam.priority || 0) : 0;
-    const boost = 20 - priority; // Priority 0 = +20, Priority 5 = +15
+  if (matchedFavorite) {
+    const teamData = TEAMS.find(t => t.id === matchedFavorite.id);
+    const priority = matchedFavorite.priority || 0;
+    const boost = 25 - (priority * 2); // Priority 0 = +25, Priority 5 = +15
     score += Math.max(5, boost);
-    const teamName = typeof matchedTeam === 'object' ? matchedTeam.name : matchedTeam;
-    reasons.push(`Preferred team (${teamName})`);
+    reasons.push(`Preferred team (${teamData?.name})`);
   }
 
   // Market Boost
   const favoriteMarkets = (preferences.favoriteMarkets as any[]) ?? [];
-  const gameMarketId = (game as any).marketId;
-  const matchedMarket = favoriteMarkets.find(m => m.id === gameMarketId);
+  // Find markets associated with the teams in this game
+  const gameTeamIds = TEAMS.filter(t => 
+    game.teamA?.toLowerCase().includes(t.name.toLowerCase()) || 
+    game.teamB?.toLowerCase().includes(t.name.toLowerCase())
+  ).map(t => t.market);
 
-  if (matchedMarket) {
-    const boost = 15 - (matchedMarket.priority || 0);
+  const matchedMarketFav = favoriteMarkets.find(fav => gameTeamIds.includes(fav.id));
+
+  if (matchedMarketFav) {
+    const marketData = MARKETS.find(m => m.id === matchedMarketFav.id);
+    const priority = matchedMarketFav.priority || 0;
+    const boost = 15 - priority;
     score += Math.max(5, boost);
-    reasons.push(`Local market interest (${matchedMarket.name})`);
+    reasons.push(`Local interest (${marketData?.name})`);
   }
 
   // League Priority Boosts
