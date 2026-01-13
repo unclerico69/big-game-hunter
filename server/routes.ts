@@ -53,9 +53,11 @@ export async function registerRoutes(
     if (!prefs) {
         // Return defaults if none exist
         prefs = await storage.updatePreferences({
+            venueId: 1,
             favoriteTeams: [],
+            favoriteMarkets: [],
             leaguePriority: ["NFL", "NBA", "MLB", "NHL"],
-            hardRules: {}
+            preventRapidSwitching: true
         });
     }
     res.json(prefs);

@@ -80,17 +80,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPreferences(): Promise<Preference | undefined> {
-    const [pref] = await db.select().from(preferences).limit(1);
+    const [pref] = await db.select().from(preferences).orderBy(desc(preferences.updatedAt)).limit(1);
     return pref;
   }
 
   async updatePreferences(prefs: InsertPreference): Promise<Preference> {
     const existing = await this.getPreferences();
     if (existing) {
-        const [updated] = await db.update(preferences).set(prefs as any).where(eq(preferences.id, existing.id)).returning();
+        const [updated] = await db.update(preferences).set({
+          ...prefs,
+          updatedAt: new Date(),
+          version: (existing.version || 1) + 1
+        } as any).where(eq(preferences.id, existing.id)).returning();
         return updated;
     } else {
-        const [created] = await db.insert(preferences).values(prefs as any).returning();
+        const [created] = await db.insert(preferences).values({
+          ...prefs,
+          venueId: 1, // Default for MVP
+          version: 1
+        } as any).returning();
         return created;
     }
   }
