@@ -18,26 +18,24 @@ export default function Preferences() {
   const [leagues, setLeagues] = useState<string[]>([]);
   const [favoriteTeams, setFavoriteTeams] = useState<{ id: string; priority: number }[]>([]);
   const [favoriteMarkets, setFavoriteMarkets] = useState<{ id: string; priority: number }[]>([]);
-  
-  const [teamSearch, setTeamSearch] = useState("");
-  const [marketSearch, setMarketSearch] = useState("");
-  const [showTeamResults, setShowTeamResults] = useState(false);
-  const [showMarketResults, setShowMarketResults] = useState(false);
+  const [preventRapidSwitching, setPreventRapidSwitching] = useState(true);
 
   useEffect(() => {
     if (prefs) {
       setLeagues(prefs.leaguePriority || []);
       setFavoriteTeams((prefs.favoriteTeams as any[]) || []);
       setFavoriteMarkets((prefs.favoriteMarkets as any[]) || []);
+      setPreventRapidSwitching(prefs.preventRapidSwitching ?? true);
     }
   }, [prefs]);
 
   const handleSave = () => {
     updatePrefs.mutate({
+      venueId: 1, // Default for MVP
       leaguePriority: leagues,
       favoriteTeams,
       favoriteMarkets,
-      hardRules: prefs?.hardRules || {}
+      preventRapidSwitching,
     }, {
       onSuccess: () => toast({ title: "Preferences Saved", description: "Algorithm weights updated." })
     });
@@ -100,6 +98,11 @@ export default function Preferences() {
     }
     setLeagues(newOrder);
   };
+
+  const [teamSearch, setTeamSearch] = useState("");
+  const [marketSearch, setMarketSearch] = useState("");
+  const [showTeamResults, setShowTeamResults] = useState(false);
+  const [showMarketResults, setShowMarketResults] = useState(false);
 
   const filteredTeams = teamSearch.length >= 2 
     ? TEAMS.filter(t => 
@@ -347,7 +350,10 @@ export default function Preferences() {
                 <Label className="text-base">Prevent rapid switching</Label>
                 <p className="text-sm text-muted-foreground">Keep a game on for at least 15 minutes before switching.</p>
               </div>
-              <Switch checked={true} />
+              <Switch 
+                checked={preventRapidSwitching} 
+                onCheckedChange={setPreventRapidSwitching}
+              />
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
