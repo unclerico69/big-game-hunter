@@ -106,14 +106,14 @@ export default function Preferences() {
         !favoriteTeams.some(fav => fav.id === t.id) &&
         (t.name.toLowerCase().includes(teamSearch.toLowerCase()) || 
          t.league.toLowerCase().includes(teamSearch.toLowerCase()))
-      ).slice(0, 5)
+      ).slice(0, 10)
     : [];
 
-  const filteredMarkets = marketSearch.length >= 2
+  const filteredMarkets = marketSearch.length >= 1
     ? MARKETS.filter(m => 
         !favoriteMarkets.some(fav => fav.id === m.id) &&
         m.name.toLowerCase().includes(marketSearch.toLowerCase())
-      ).slice(0, 5)
+      ).slice(0, 10)
     : [];
 
   if (isLoading) {
@@ -163,18 +163,23 @@ export default function Preferences() {
                 onBlur={() => setTimeout(() => setShowTeamResults(false), 200)}
                 onFocus={() => setShowTeamResults(true)}
               />
-              {showTeamResults && filteredTeams.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden">
-                  {filteredTeams.map(team => (
+              {showTeamResults && (teamSearch.length >= 2 || filteredTeams.length > 0) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden max-h-[200px] overflow-y-auto">
+                  {filteredTeams.length > 0 ? filteredTeams.map(team => (
                     <button
                       key={team.id}
                       className="w-full px-4 py-2 text-left hover:bg-secondary/50 flex items-center justify-between text-sm transition-colors"
-                      onClick={() => addTeam(team.id)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addTeam(team.id);
+                      }}
                     >
                       <span>{team.name} <span className="text-xs text-muted-foreground">({team.league})</span></span>
                       <Plus className="w-3 h-3 text-primary" />
                     </button>
-                  ))}
+                  )) : (
+                    <div className="px-4 py-2 text-sm text-muted-foreground italic">No matches found</div>
+                  )}
                 </div>
               )}
             </div>
@@ -239,18 +244,23 @@ export default function Preferences() {
                 onBlur={() => setTimeout(() => setShowMarketResults(false), 200)}
                 onFocus={() => setShowMarketResults(true)}
               />
-              {showMarketResults && filteredMarkets.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden">
-                  {filteredMarkets.map(market => (
+              {showMarketResults && (marketSearch.length >= 1 || filteredMarkets.length > 0) && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-md shadow-lg z-50 overflow-hidden max-h-[200px] overflow-y-auto">
+                  {filteredMarkets.length > 0 ? filteredMarkets.map(market => (
                     <button
                       key={market.id}
                       className="w-full px-4 py-2 text-left hover:bg-secondary/50 flex items-center justify-between text-sm transition-colors"
-                      onClick={() => addMarket(market.id)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        addMarket(market.id);
+                      }}
                     >
                       <span>{market.name}</span>
                       <Plus className="w-3 h-3 text-primary" />
                     </button>
-                  ))}
+                  )) : (
+                    <div className="px-4 py-2 text-sm text-muted-foreground italic">No matches found</div>
+                  )}
                 </div>
               )}
             </div>
