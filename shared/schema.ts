@@ -31,10 +31,14 @@ export const games = pgTable("games", {
 
 export const preferences = pgTable("preferences", {
   id: serial("id").primaryKey(),
-  favoriteTeams: jsonb("favorite_teams").$type<{ id: string; priority: number }[]>().default([]),
-  favoriteMarkets: jsonb("favorite_markets").$type<{ id: string; priority: number }[]>().default([]),
-  leaguePriority: text("league_priority").array(),
-  hardRules: jsonb("hard_rules"),
+  venueId: integer("venue_id").notNull(),
+  version: integer("version").notNull().default(1),
+  favoriteTeams: jsonb("favorite_teams").$type<{ id: string; priority: number }[]>().notNull().default([]),
+  favoriteMarkets: jsonb("favorite_markets").$type<{ id: string; priority: number }[]>().notNull().default([]),
+  leaguePriority: jsonb("league_priority").$type<string[]>().notNull().default([]),
+  preventRapidSwitching: boolean("prevent_rapid_switching").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const requests = pgTable("requests", {
