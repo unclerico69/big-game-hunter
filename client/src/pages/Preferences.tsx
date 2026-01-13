@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { usePreferences, useUpdatePreferences } from "@/hooks/use-preferences";
-import { Loader2, Save, ArrowUp, ArrowDown, Trophy, MapPin } from "lucide-react";
+import { Loader2, Save, ArrowUp, ArrowDown, Trash2, Trophy, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
@@ -10,6 +10,7 @@ import { MARKETS } from "@shared/data/markets";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 
 export default function Preferences() {
   const { data: prefs, isLoading } = usePreferences();
@@ -18,6 +19,9 @@ export default function Preferences() {
   const [leagues, setLeagues] = useState<string[]>([]);
   const [favoriteTeams, setFavoriteTeams] = useState<{ id: string; priority: number }[]>([]);
   const [favoriteMarkets, setFavoriteMarkets] = useState<{ id: string; priority: number }[]>([]);
+  
+  const [teamSearch, setTeamSearch] = useState("");
+  const [marketSearch, setMarketSearch] = useState("");
 
   useEffect(() => {
     if (prefs) {
@@ -58,6 +62,26 @@ export default function Preferences() {
     });
   };
 
+  const moveTeam = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...favoriteTeams];
+    if (direction === 'up' && index > 0) {
+      [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
+    } else if (direction === 'down' && index < newOrder.length - 1) {
+      [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    }
+    setFavoriteTeams(newOrder.map((t, i) => ({ ...t, priority: i })));
+  };
+
+  const moveMarket = (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...favoriteMarkets];
+    if (direction === 'up' && index > 0) {
+      [newOrder[index], newOrder[index - 1]] = [newOrder[index - 1], newOrder[index]];
+    } else if (direction === 'down' && index < newOrder.length - 1) {
+      [newOrder[index], newOrder[index + 1]] = [newOrder[index + 1], newOrder[index]];
+    }
+    setFavoriteMarkets(newOrder.map((m, i) => ({ ...m, priority: i })));
+  };
+
   const moveLeague = (index: number, direction: 'up' | 'down') => {
     const newOrder = [...leagues];
     if (direction === 'up' && index > 0) {
@@ -67,6 +91,15 @@ export default function Preferences() {
     }
     setLeagues(newOrder);
   };
+
+  const filteredTeams = TEAMS.filter(t => 
+    t.name.toLowerCase().includes(teamSearch.toLowerCase()) || 
+    t.league.toLowerCase().includes(teamSearch.toLowerCase())
+  );
+
+  const filteredMarkets = MARKETS.filter(m => 
+    m.name.toLowerCase().includes(marketSearch.toLowerCase())
+  );
 
   if (isLoading) {
     return (
@@ -92,25 +125,63 @@ export default function Preferences() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Favorite Teams Card */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Trophy className="w-5 h-5 text-primary" />
               Home Teams
             </CardTitle>
-            <CardDescription>Select teams to prioritize.</CardDescription>
+            <CardDescription>Search and prioritize teams.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {TEAMS.map(team => (
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search teams..." 
+                className="pl-9"
+                value={teamSearch}
+                onChange={e => setTeamSearch(e.target.value)}
+              />
+            </div>
+            
+            {/* Selected Teams with Reordering */}
+            {favoriteTeams.length > 0 && (
+              <div className="space-y-2 mb-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Priority Order</p>
+                {favoriteTeams.map((fav, idx) => {
+                  const team = TEAMS.find(t => t.id === fav.id);
+                  if (!team) return null;
+                  return (
+                    <div key={fav.id} className="flex items-center justify-between bg-primary/5 p-2 rounded border border-primary/10">
+                      <span className="text-sm font-medium">{team.name}</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveTeam(idx, 'up')} disabled={idx === 0}>
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveTeam(idx, 'down')} disabled={idx === favoriteTeams.length - 1}>
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleTeam(fav.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-2 border-t border-border/50 max-h-[300px] overflow-y-auto pr-2">
+              {filteredTeams.map(team => (
                 <div key={team.id} className="flex items-center space-x-3">
                   <Checkbox 
                     id={team.id} 
                     checked={favoriteTeams.some(t => t.id === team.id)}
                     onCheckedChange={() => toggleTeam(team.id)}
                   />
-                  <Label htmlFor={team.id} className="text-sm font-medium leading-none">
-                    {team.name} ({team.league})
+                  <Label htmlFor={team.id} className="text-sm font-normal cursor-pointer flex-1">
+                    {team.name} <span className="text-xs text-muted-foreground ml-1">({team.league})</span>
                   </Label>
                 </div>
               ))}
@@ -118,24 +189,62 @@ export default function Preferences() {
           </CardContent>
         </Card>
 
+        {/* Markets Card */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MapPin className="w-5 h-5 text-primary" />
               Local Markets
             </CardTitle>
-            <CardDescription>Boost games of interest for these regions.</CardDescription>
+            <CardDescription>Search and prioritize regions.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {MARKETS.map(market => (
+          <CardContent className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search markets..." 
+                className="pl-9"
+                value={marketSearch}
+                onChange={e => setMarketSearch(e.target.value)}
+              />
+            </div>
+
+            {/* Selected Markets with Reordering */}
+            {favoriteMarkets.length > 0 && (
+              <div className="space-y-2 mb-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase">Priority Order</p>
+                {favoriteMarkets.map((fav, idx) => {
+                  const market = MARKETS.find(m => m.id === fav.id);
+                  if (!market) return null;
+                  return (
+                    <div key={fav.id} className="flex items-center justify-between bg-primary/5 p-2 rounded border border-primary/10">
+                      <span className="text-sm font-medium">{market.name}</span>
+                      <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveMarket(idx, 'up')} disabled={idx === 0}>
+                          <ArrowUp className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => moveMarket(idx, 'down')} disabled={idx === favoriteMarkets.length - 1}>
+                          <ArrowDown className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => toggleMarket(fav.id)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-2 border-t border-border/50 max-h-[300px] overflow-y-auto pr-2">
+              {filteredMarkets.map(market => (
                 <div key={market.id} className="flex items-center space-x-3">
                   <Checkbox 
                     id={market.id} 
                     checked={favoriteMarkets.some(m => m.id === market.id)}
                     onCheckedChange={() => toggleMarket(market.id)}
                   />
-                  <Label htmlFor={market.id} className="text-sm font-medium leading-none">
+                  <Label htmlFor={market.id} className="text-sm font-normal cursor-pointer flex-1">
                     {market.name}
                   </Label>
                 </div>
@@ -144,6 +253,7 @@ export default function Preferences() {
           </CardContent>
         </Card>
 
+        {/* League Priority Card */}
         <Card className="bg-card border-border md:col-span-2">
           <CardHeader>
             <CardTitle>League Priority</CardTitle>
