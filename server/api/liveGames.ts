@@ -54,6 +54,9 @@ export async function getLiveGames(req: Request, res: Response) {
 
     console.log(`[api/games] Serving from: ${dataSourceName} (${gamesToProcess.length} games)`);
 
+    const tvIdParam = req.query.tvId;
+    const tvContext = tvIdParam ? await storage.getTv(Number(tvIdParam)) : null;
+
     // Process games and mock them with relevance/hotness for MVP
     const processedGames = gamesToProcess.map(g => {
       // If using mock games, we still try to enrich with broadcast network if available
@@ -84,8 +87,19 @@ export async function getLiveGames(req: Request, res: Response) {
         isOvertime: false
       };
 
-      const hotnessScore = computeFinalHotness({ ...g, ...mockFields }, prefs);
-      const relevanceResult = calculateRelevance({ ...g, ...mockFields, hotnessScore }, prefs, stats);
+      const gameForScoring = { 
+        ...g, 
+        ...mockFields,
+        assignedTvCount: stats[g.id] || 0 
+      };
+
+      const hotnessScore = computeFinalHotness(gameForScoring, prefs);
+      const relevanceResult = calculateRelevance(
+        { ...gameForScoring, hotnessScore }, 
+        prefs, 
+        stats,
+        tvContext ? { lastUpdated: tvContext.lastUpdated } : undefined
+      );
 
       return {
         ...g,

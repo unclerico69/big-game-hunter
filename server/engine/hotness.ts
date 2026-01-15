@@ -78,6 +78,14 @@ export function computeFinalHotness(game: any, preferences: any): number {
     score += homeBoost;
   }
 
+  // 3. Assigned TVs Boost (+15 per TV)
+  const assignedCount = game.assignedTvCount || 0;
+  if (assignedCount > 0) {
+    const platformBoost = assignedCount * 15;
+    score += platformBoost;
+    console.log(`[hotness] ${game.title}: PlatformBoost=+${platformBoost}`);
+  }
+
   // Minimal logging for debugging
   console.log(`[hotness] ${game.title}: Base=${baseScore.toFixed(1)}, LeagueMult=${multiplier}x, HomeBoost=+${homeBoost}, Final=${Math.round(score)}`);
 

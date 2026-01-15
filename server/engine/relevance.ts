@@ -11,7 +11,12 @@ export interface RelevanceResult {
  * Pure function to calculate game relevance score and generate human-readable reasons.
  * Combines hotness, preferences, and platform signals.
  */
-export function calculateRelevance(game: any, preferences?: Preference, stats?: Record<number, number>): RelevanceResult {
+export function calculateRelevance(
+  game: any,
+  preferences?: Preference,
+  stats?: Record<number, number>,
+  tvContext?: { lastUpdated?: Date | null }
+): RelevanceResult {
   const reasons: string[] = [];
   
   // 1. Base: Start with hotnessScore * 0.6
@@ -19,6 +24,21 @@ export function calculateRelevance(game: any, preferences?: Preference, stats?: 
 
   if (!preferences) {
     return { score: Math.max(0, Math.min(100, Math.round(score))), reasons };
+  }
+
+  // Rapid Switching Penalty
+  if (tvContext?.lastUpdated) {
+    const lastUpdated = new Date(tvContext.lastUpdated);
+    const now = new Date();
+    const diffMinutes = (now.getTime() - lastUpdated.getTime()) / (1000 * 60);
+    
+    if (diffMinutes < 5) {
+      // If this specific game IS the current game, no penalty
+      // But we are scoring "other" games for this TV.
+      // We'll apply a heavy penalty to discourage flipping.
+      score -= 30;
+      reasons.push("Recently updated (preventing rapid flipping)");
+    }
   }
 
   // 2. Additive Boosts
