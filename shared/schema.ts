@@ -15,6 +15,7 @@ export const tvs = pgTable("tvs", {
   lockedUntil: timestamp("locked_until"),
   manualOverride: boolean("manual_override").default(false),
   status: text("status").default("active"),
+  lastUpdated: timestamp("last_updated").defaultNow(),
 });
 
 export const games = pgTable("games", {
@@ -27,6 +28,7 @@ export const games = pgTable("games", {
   startTime: timestamp("start_time").notNull(),
   relevance: integer("relevance").default(0),
   status: text("status").default("Scheduled"),
+  assignedTvCount: integer("assigned_tv_count").default(0),
 });
 
 // preferences table is manually managed to prevent auto-migration issues

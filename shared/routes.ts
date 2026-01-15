@@ -39,6 +39,25 @@ export const api = {
         404: errorSchemas.notFound,
       },
     },
+    assign: {
+      method: 'POST' as const,
+      path: '/api/tvs/:id/assign',
+      input: z.object({
+        gameId: z.number(),
+      }),
+      responses: {
+        200: z.custom<typeof tvs.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
+    clear: {
+      method: 'POST' as const,
+      path: '/api/tvs/:id/clear',
+      responses: {
+        200: z.custom<typeof tvs.$inferSelect>(),
+        404: errorSchemas.notFound,
+      },
+    },
   },
   games: {
     list: {

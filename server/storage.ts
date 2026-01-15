@@ -47,16 +47,45 @@ export class DatabaseStorage implements IStorage {
 
   async updateTv(id: number, updates: UpdateTvRequest): Promise<Tv> {
     const { lockDuration, ...fields } = updates;
+    const currentTv = await this.getTv(id);
+    if (!currentTv) throw new Error("TV not found");
+
     if (lockDuration) {
       const lockUntil = new Date();
       lockUntil.setMinutes(lockUntil.getMinutes() + lockDuration);
       (fields as any).lockedUntil = lockUntil;
       (fields as any).manualOverride = true;
     } else if (lockDuration === 0) {
-       (fields as any).lockedUntil = null;
-       (fields as any).manualOverride = false;
+      (fields as any).lockedUntil = null;
+      (fields as any).manualOverride = false;
     }
-    const [updated] = await db.update(tvs).set(fields).where(eq(tvs.id, id)).returning();
+
+    // Handle game assignment counts if currentGameId is being changed
+    if ('currentGameId' in fields && fields.currentGameId !== currentTv.currentGameId) {
+      // Decrement old game count
+      if (currentTv.currentGameId) {
+        const oldGame = await this.getGame(currentTv.currentGameId);
+        if (oldGame) {
+          await db.update(games)
+            .set({ assignedTvCount: (oldGame.assignedTvCount || 1) - 1 })
+            .where(eq(games.id, oldGame.id));
+        }
+      }
+      // Increment new game count
+      if (fields.currentGameId) {
+        const newGame = await this.getGame(fields.currentGameId as number);
+        if (newGame) {
+          await db.update(games)
+            .set({ assignedTvCount: (newGame.assignedTvCount || 0) + 1 })
+            .where(eq(games.id, newGame.id));
+        }
+      }
+    }
+
+    const [updated] = await db.update(tvs)
+      .set({ ...fields, lastUpdated: new Date() })
+      .where(eq(tvs.id, id))
+      .returning();
     return updated;
   }
 

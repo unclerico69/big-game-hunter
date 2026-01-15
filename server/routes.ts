@@ -41,6 +41,41 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.tvs.assign.path, async (req, res) => {
+    try {
+      const tvId = Number(req.params.id);
+      const { gameId } = api.tvs.assign.input.parse(req.body);
+      const game = await storage.getGame(gameId);
+      if (!game) return res.status(404).json({ message: 'Game not found' });
+
+      const tv = await storage.updateTv(tvId, {
+        currentGameId: game.id,
+        currentChannel: game.channel,
+        manualOverride: true
+      });
+      res.json(tv);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.message });
+      }
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
+  app.post(api.tvs.clear.path, async (req, res) => {
+    try {
+      const tvId = Number(req.params.id);
+      const tv = await storage.updateTv(tvId, {
+        currentGameId: null,
+        currentChannel: null,
+        manualOverride: false
+      });
+      res.json(tv);
+    } catch (err) {
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+
   app.get(api.games.list.path, getLiveGames);
 
   // === Locks ===
