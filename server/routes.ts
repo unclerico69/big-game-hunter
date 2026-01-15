@@ -46,18 +46,16 @@ export async function registerRoutes(
       const tvId = Number(req.params.id);
       const { gameId } = api.tvs.assign.input.parse(req.body);
       
-      // Look for the game in local storage or external source
+      console.log(`[api/tvs/assign] Assigning game ${gameId} to TV ${tvId}`);
+      
       let game = await storage.getGame(gameId);
       
       if (!game) {
-        // If not found in DB, it might be a negative ID from external source
-        // For MVP, we'll try to find it from the live games list if it's currently being served
-        // However, the best way is to ensure assigned games are tracked.
-        // For now, let's allow assigning if we can't find it but have its info, 
-        // OR better: return 404 and log it.
         console.error(`Assignment failed: Game ${gameId} not found in database`);
-        return res.status(404).json({ message: 'Game not found in system storage' });
+        return res.status(404).json({ message: `Game ${gameId} not found in system storage` });
       }
+
+      console.log(`[api/tvs/assign] Found game: ${game.title}`);
 
       const tv = await storage.updateTv(tvId, {
         currentGameId: game.id,
@@ -66,6 +64,7 @@ export async function registerRoutes(
       });
       res.json(tv);
     } catch (err) {
+      console.error("[api/tvs/assign] Unexpected error:", err);
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.message });
       }

@@ -108,6 +108,10 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async updateGameStatus(id: number, status: string): Promise<void> {
+    await db.update(games).set({ status }).where(eq(games.id, id));
+  }
+
   async getPreferences(): Promise<Preference | undefined> {
     const [pref] = await db.select().from(preferences).orderBy(desc(preferences.updatedAt)).limit(1);
     if (pref) {

@@ -33,9 +33,15 @@ export async function getLiveGames(req: Request, res: Response) {
           // UPSERT game into database so it has a real ID for assignment
           const title = `${eg.homeTeam} vs ${eg.awayTeam}`;
           const existingGames = await storage.getGames();
-          let dbGame = existingGames.find(g => g.title === title && g.startTime.getTime() === startTime.getTime());
+          
+          // Match by title and start time (within a small window to handle precision issues)
+          let dbGame = existingGames.find(g => 
+            g.title === title && 
+            Math.abs(g.startTime.getTime() - startTime.getTime()) < 60000
+          );
           
           if (!dbGame) {
+            console.log(`[api/games] Creating persistent record for: ${title}`);
             dbGame = await storage.createGame({
               title,
               teamA: eg.homeTeam,
@@ -47,6 +53,12 @@ export async function getLiveGames(req: Request, res: Response) {
               relevance: 0,
               assignedTvCount: 0
             });
+          } else {
+            // Update status if it changed
+            if (dbGame.status !== status) {
+              await storage.updateGameStatus(dbGame.id, status);
+              dbGame.status = status;
+            }
           }
 
           return {
