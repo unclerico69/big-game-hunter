@@ -67,6 +67,12 @@ export function GameCard({ game, compact = false, action }: GameCardProps) {
                 {isHot && <Flame className="w-2.5 h-2.5 fill-red-500" />}
               </span>
             )}
+            {game.assignedTvCount && game.assignedTvCount > 0 ? (
+              <span className="px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-primary text-primary-foreground flex items-center gap-1 shadow-sm">
+                <Tv className="w-2.5 h-2.5" />
+                On {game.assignedTvCount} TV{game.assignedTvCount > 1 ? 's' : ''}
+              </span>
+            ) : null}
           </div>
           <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
             <Tv className="w-3 h-3" />

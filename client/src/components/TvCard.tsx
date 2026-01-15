@@ -117,7 +117,8 @@ export function TvCard({ tv, game }: TvCardProps) {
       <div className="p-4 flex-1 flex flex-col justify-center items-center text-center relative">
         {game ? (
           <>
-            <div className="text-xs font-bold text-primary mb-2 uppercase tracking-widest">{game.league}</div>
+            <div className="text-xs font-bold text-primary mb-2 uppercase tracking-widest">Now Playing</div>
+            <div className="text-[10px] font-bold text-muted-foreground/60 mb-1 uppercase tracking-tighter">{game.league}</div>
             <h4 className="text-lg font-display font-bold mb-1 line-clamp-2">
               {game.teamA} vs {game.teamB}
             </h4>
@@ -127,8 +128,8 @@ export function TvCard({ tv, game }: TvCardProps) {
           </>
         ) : (
           <div className="flex flex-col items-center gap-2 text-muted-foreground/50">
-            <RefreshCw className="w-8 h-8 animate-spin-slow" />
-            <span className="text-sm">Tuning...</span>
+            <Monitor className="w-8 h-8 opacity-20" />
+            <span className="text-sm font-medium uppercase tracking-widest opacity-40">Idle</span>
           </div>
         )}
       </div>
