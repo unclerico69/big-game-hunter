@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { useGames } from "@/hooks/use-games";
-import { useTvs } from "@/hooks/use-tvs";
+import { useTvs, useAssignTv } from "@/hooks/use-tvs";
 import { Layout } from "@/components/Layout";
 import { GameCard } from "@/components/GameCard";
 import { Loader2, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -26,40 +25,33 @@ import {
 export default function Games() {
   const { data: games, isLoading } = useGames();
   const { data: tvs } = useTvs();
+  const assignTv = useAssignTv();
   const { toast } = useToast();
   const [selectedGameId, setSelectedGameId] = useState<number | null>(null);
   const [selectedTvId, setSelectedTvId] = useState<string>("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isAssigning, setIsAssigning] = useState(false);
 
   const handleAssign = async () => {
     if (!selectedGameId || !selectedTvId) return;
     
-    setIsAssigning(true);
-    try {
-      await apiRequest("POST", `/api/tvs/${selectedTvId}/assign-game`, {
-        gameId: selectedGameId,
-      });
-      
-      queryClient.invalidateQueries({ queryKey: ["/api/tvs"] });
-      
-      toast({
-        title: "Success",
-        description: "Game assigned successfully. Auto-mode disabled for this TV.",
-      });
-      
-      setIsModalOpen(false);
-      setSelectedGameId(null);
-      setSelectedTvId("");
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to assign game. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsAssigning(false);
-    }
+    assignTv.mutate({ id: Number(selectedTvId), gameId: selectedGameId }, {
+      onSuccess: () => {
+        toast({
+          title: "Success",
+          description: "Game assigned successfully. Auto-mode disabled for this TV.",
+        });
+        setIsModalOpen(false);
+        setSelectedGameId(null);
+        setSelectedTvId("");
+      },
+      onError: () => {
+        toast({
+          title: "Error",
+          description: "Failed to assign game. Please try again.",
+          variant: "destructive",
+        });
+      }
+    });
   };
 
   if (isLoading) {
@@ -187,11 +179,11 @@ export default function Games() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={isAssigning}>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={assignTv.isPending}>
               Cancel
             </Button>
-            <Button onClick={handleAssign} disabled={!selectedTvId || isAssigning}>
-              {isAssigning ? (
+            <Button onClick={handleAssign} disabled={!selectedTvId || assignTv.isPending}>
+              {assignTv.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Assigning...
