@@ -30,11 +30,23 @@ export function computeBaseHotness(game: any): number {
     "NFL": 10,
     "NBA": 8,
     "NHL": 5,
-    "MLB": 3
+    "MLB": 3,
+    "NCAA_FB": 7,
+    "NCAA_MBB": 6,
+    "NCAA_WBB": 4
   };
   
   const league = game.league?.toUpperCase() || "";
   score += leagueBoosts[league] || 0;
+
+  // College specific logic
+  if (game.isCollege) {
+    // High scoring college basketball boost
+    if ((league === "NCAA_MBB" || league === "NCAA_WBB") && game.status === "Live") {
+      const totalScore = (game.homeScore || 0) + (game.awayScore || 0);
+      if (totalScore > 140) score += 5;
+    }
+  }
 
   return Math.min(score, 100);
 }
