@@ -24,25 +24,36 @@ export async function getLiveGames(req: Request, res: Response) {
     // If not, we fall back to mock games for development/testing.
     const now = new Date();
     const gamesToProcess = sourceData.length > 0 
-      ? sourceData.map((eg, idx) => {
+      ? await Promise.all(sourceData.map(async (eg, idx) => {
           const startTime = new Date(eg.startTime);
           const hasStarted = startTime <= now;
           // Determine status based on schedule and live flag
           const status = (hasStarted && eg.isLive) ? "Live" : "Upcoming";
 
+          // UPSERT game into database so it has a real ID for assignment
+          const title = `${eg.homeTeam} vs ${eg.awayTeam}`;
+          const existingGames = await storage.getGames();
+          let dbGame = existingGames.find(g => g.title === title && g.startTime.getTime() === startTime.getTime());
+          
+          if (!dbGame) {
+            dbGame = await storage.createGame({
+              title,
+              teamA: eg.homeTeam,
+              teamB: eg.awayTeam,
+              league: eg.league,
+              channel: eg.broadcastNetwork || "Unknown",
+              startTime,
+              status,
+              relevance: 0,
+              assignedTvCount: 0
+            });
+          }
+
           return {
-            id: -(idx + 1), // Negative IDs for external games to avoid conflicts
-            title: `${eg.homeTeam} vs ${eg.awayTeam}`,
-            teamA: eg.homeTeam,
-            teamB: eg.awayTeam,
-            league: eg.league,
-            channel: eg.broadcastNetwork || "Unknown",
-            startTime,
-            status,
-            relevance: 0,
+            ...dbGame,
             broadcastNetwork: eg.broadcastNetwork
           };
-        })
+        }))
       : mockGames.map(g => {
           const startTime = new Date(g.startTime);
           const hasStarted = startTime <= now;
