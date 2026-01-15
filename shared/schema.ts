@@ -29,6 +29,7 @@ export const games = pgTable("games", {
   status: text("status").default("Scheduled"),
 });
 
+// preferences table is manually managed to prevent auto-migration issues
 export const preferences = pgTable("preferences", {
   id: serial("id").primaryKey(),
   venueId: integer("venue_id").notNull(),
