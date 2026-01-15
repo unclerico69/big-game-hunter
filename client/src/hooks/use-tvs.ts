@@ -44,6 +44,45 @@ export function useUpdateTv() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.tvs.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.games.list.path] });
+    },
+  });
+}
+
+export function useAssignTv() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, gameId }: { id: number, gameId: number }) => {
+      const url = buildUrl(api.tvs.assign.path, { id });
+      const res = await fetch(url, {
+        method: api.tvs.assign.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      });
+      if (!res.ok) throw new Error("Failed to assign game to TV");
+      return api.tvs.assign.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.tvs.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.games.list.path] });
+    },
+  });
+}
+
+export function useClearTv() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const url = buildUrl(api.tvs.clear.path, { id });
+      const res = await fetch(url, {
+        method: api.tvs.clear.method,
+      });
+      if (!res.ok) throw new Error("Failed to clear TV");
+      return api.tvs.clear.responses[200].parse(await res.json());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [api.tvs.list.path] });
+      queryClient.invalidateQueries({ queryKey: [api.games.list.path] });
     },
   });
 }

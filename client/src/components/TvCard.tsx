@@ -1,7 +1,7 @@
 import { type Tv, type Game } from "@shared/schema";
-import { Lock, Unlock, Monitor, Power, MoreVertical, RefreshCw } from "lucide-react";
+import { Lock, Unlock, Monitor, Power, MoreVertical, RefreshCw, XCircle } from "lucide-react";
 import { clsx } from "clsx";
-import { useUpdateTv } from "@/hooks/use-tvs";
+import { useUpdateTv, useClearTv } from "@/hooks/use-tvs";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -20,6 +20,7 @@ interface TvCardProps {
 
 export function TvCard({ tv, game }: TvCardProps) {
   const updateTv = useUpdateTv();
+  const clearTv = useClearTv();
   const { toast } = useToast();
   const isLocked = tv.lockedUntil && new Date(tv.lockedUntil) > new Date();
   
@@ -44,6 +45,15 @@ export function TvCard({ tv, game }: TvCardProps) {
       }
     );
   };
+
+  const handleClear = () => {
+    clearTv.mutate(tv.id, {
+      onSuccess: () => {
+        toast({ title: "TV Cleared", description: `${tv.name} is now available.` });
+      }
+    });
+  };
+
 
   const statusColor = 
     tv.status === "error" ? "bg-red-500" :
@@ -91,6 +101,11 @@ export function TvCard({ tv, game }: TvCardProps) {
               </>
             )}
             <DropdownMenuSeparator className="bg-border" />
+            {tv.currentGameId && (
+              <DropdownMenuItem onClick={handleClear}>
+                <XCircle className="w-4 h-4 mr-2" /> Clear Game
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="text-red-500 focus:text-red-500">
               <Power className="w-4 h-4 mr-2" /> Turn Off
             </DropdownMenuItem>

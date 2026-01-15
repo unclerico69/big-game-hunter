@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Layout } from "@/components/Layout";
-import { useRecommendations, useApplyRecommendation } from "@/hooks/use-recommendations";
+import { useRecommendations } from "@/hooks/use-recommendations";
 import { useGames } from "@/hooks/use-games";
-import { useTvs } from "@/hooks/use-tvs";
+import { useTvs, useAssignTv } from "@/hooks/use-tvs";
 import { GameCard } from "@/components/GameCard";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowRight, CheckCircle2, AlertOctagon, Zap } from "lucide-react";
@@ -21,12 +21,12 @@ export default function Recommendations() {
   const { data: recs, isLoading: recsLoading } = useRecommendations();
   const { data: games } = useGames("Live");
   const { data: tvs } = useTvs();
-  const applyRec = useApplyRecommendation();
+  const assignTv = useAssignTv();
   
   const [selectedRec, setSelectedRec] = useState<{tvId: number, gameId: number} | null>(null);
 
   const handleApply = (tvId: number, gameId: number) => {
-    applyRec.mutate({ tvId, gameId }, {
+    assignTv.mutate({ id: tvId, gameId }, {
       onSuccess: () => {
         toast({ title: "Optimized", description: "Recommendation applied successfully." });
         setSelectedRec(null);
@@ -124,8 +124,8 @@ export default function Recommendations() {
                       </DialogHeader>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setSelectedRec(null)}>Cancel</Button>
-                        <Button onClick={() => handleApply(rec.tvId, rec.gameId)} disabled={applyRec.isPending}>
-                          {applyRec.isPending ? "Applying..." : "Confirm Switch"}
+                        <Button onClick={() => handleApply(rec.tvId, rec.gameId)} disabled={assignTv.isPending}>
+                          {assignTv.isPending ? "Applying..." : "Confirm Switch"}
                         </Button>
                       </DialogFooter>
                     </DialogContent>

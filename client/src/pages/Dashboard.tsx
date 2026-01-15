@@ -39,6 +39,9 @@ export default function Dashboard() {
 
   const activeTvs = tvs?.filter(tv => tv.status !== "off") || [];
   const offTvs = tvs?.filter(tv => tv.status === "off") || [];
+  
+  // Count using the actual counts from game objects which include assignedTvCount
+  const totalAssignedTvCount = games?.reduce((acc, g) => acc + (g.assignedTvCount || 0), 0) || 0;
   const liveGamesCount = games?.filter(g => g.status === "Live").length || 0;
 
   return (
