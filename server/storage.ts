@@ -81,25 +81,41 @@ export class DatabaseStorage implements IStorage {
 
   async getPreferences(): Promise<Preference | undefined> {
     const [pref] = await db.select().from(preferences).orderBy(desc(preferences.updatedAt)).limit(1);
+    if (pref) {
+      return {
+        ...pref,
+        version: pref.version || 1,
+        favoriteTeams: pref.favoriteTeams || [],
+        favoriteMarkets: pref.favoriteMarkets || [],
+        leaguePriority: pref.leaguePriority || [],
+      };
+    }
     return pref;
   }
 
   async updatePreferences(prefs: InsertPreference): Promise<Preference> {
     const existing = await this.getPreferences();
+    const cleanPrefs = {
+      ...prefs,
+      favoriteTeams: prefs.favoriteTeams || [],
+      favoriteMarkets: prefs.favoriteMarkets || [],
+      leaguePriority: prefs.leaguePriority || [],
+    };
+
     if (existing) {
-        const [updated] = await db.update(preferences).set({
-          ...prefs,
-          updatedAt: new Date(),
-          version: (existing.version || 1) + 1
-        } as any).where(eq(preferences.id, existing.id)).returning();
-        return updated;
+      const [updated] = await db.update(preferences).set({
+        ...cleanPrefs,
+        updatedAt: new Date(),
+        version: (existing.version || 1) + 1
+      } as any).where(eq(preferences.id, existing.id)).returning();
+      return updated;
     } else {
-        const [created] = await db.insert(preferences).values({
-          ...prefs,
-          venueId: 1, // Default for MVP
-          version: 1
-        } as any).returning();
-        return created;
+      const [created] = await db.insert(preferences).values({
+        ...cleanPrefs,
+        venueId: 1, // Default for MVP
+        version: 1
+      } as any).returning();
+      return created;
     }
   }
 

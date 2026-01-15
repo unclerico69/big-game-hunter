@@ -32,6 +32,7 @@ export default function Preferences() {
   const handleSave = () => {
     updatePrefs.mutate({
       venueId: 1, // Default for MVP
+      version: prefs?.version || 1,
       leaguePriority: leagues,
       favoriteTeams,
       favoriteMarkets,

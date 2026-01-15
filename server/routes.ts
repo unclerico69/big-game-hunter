@@ -57,16 +57,28 @@ export async function registerRoutes(
             favoriteTeams: [],
             favoriteMarkets: [],
             leaguePriority: ["NFL", "NBA", "MLB", "NHL"],
-            preventRapidSwitching: true
-        });
+            preventRapidSwitching: true,
+            version: 1
+        } as any);
     }
     res.json(prefs);
   });
 
   app.post(api.preferences.update.path, async (req, res) => {
-    const input = api.preferences.update.input.parse(req.body);
-    const prefs = await storage.updatePreferences(input);
-    res.json(prefs);
+    try {
+      const input = api.preferences.update.input.parse(req.body);
+      const prefs = await storage.updatePreferences(input);
+      res.json(prefs);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid payload: " + err.message });
+      }
+      // Check for database constraint errors (e.g. JSONB array check)
+      if (err instanceof Error && err.message.includes("check constraint")) {
+        return res.status(400).json({ message: "Invalid payload: favorite teams, markets, and league priority must be arrays" });
+      }
+      res.status(500).json({ message: "Internal server error" });
+    }
   });
 
   // === Recommendations (Mock Engine) ===
