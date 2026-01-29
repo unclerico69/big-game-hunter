@@ -6,6 +6,9 @@ import { z } from "zod";
 import { scoreGame } from "./engine/relevance";
 import { getLiveGames } from "./api/liveGames";
 import { listLocks, createLock } from "./api/locks";
+import { TEAMS, getTeamById } from "../shared/data/teams";
+import { MARKETS } from "../shared/data/markets";
+import { LEAGUES, getDefaultLeaguePriority } from "../shared/data/leagues";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -96,16 +99,34 @@ export async function registerRoutes(
   app.get(api.preferences.get.path, async (req, res) => {
     let prefs = await storage.getPreferences();
     if (!prefs) {
-        // Return defaults if none exist
+        // Return defaults if none exist with all leagues
         prefs = await storage.updatePreferences({
             venueId: 1,
             favoriteTeams: [],
             favoriteMarkets: [],
-            leaguePriority: ["NFL", "NBA", "MLB", "NHL"],
+            leaguePriority: getDefaultLeaguePriority(),
             preventRapidSwitching: true,
             version: 1
         } as any);
     }
+    
+    // Log preferences stats
+    const favTeams = (prefs.favoriteTeams as any[]) || [];
+    const favMarkets = (prefs.favoriteMarkets as any[]) || [];
+    const ncaaTeams = favTeams.filter(t => {
+      const team = getTeamById(t.id);
+      return team?.isCollege;
+    });
+    
+    console.log(`[Preferences] Loaded ${favTeams.length} teams, ${favMarkets.length} markets`);
+    if (ncaaTeams.length > 0) {
+      console.log(`[Preferences] NCAA teams configured: ${ncaaTeams.map(t => t.id).join(', ')}`);
+    }
+    
+    // Log available NCAA teams count
+    const availableNcaaTeams = TEAMS.filter(t => t.isCollege).length;
+    console.log(`[Preferences] NCAA teams available: ${availableNcaaTeams}`);
+    
     res.json(prefs);
   });
 
@@ -113,6 +134,20 @@ export async function registerRoutes(
     try {
       const input = api.preferences.update.input.parse(req.body);
       const prefs = await storage.updatePreferences(input);
+      
+      // Log updated preferences
+      const favTeams = (prefs.favoriteTeams as any[]) || [];
+      const favMarkets = (prefs.favoriteMarkets as any[]) || [];
+      const ncaaTeams = favTeams.filter(t => {
+        const team = getTeamById(t.id);
+        return team?.isCollege;
+      });
+      
+      console.log(`[Preferences] Updated: ${favTeams.length} teams, ${favMarkets.length} markets, ${prefs.leaguePriority?.length || 0} leagues`);
+      if (ncaaTeams.length > 0) {
+        console.log(`[Preferences] NCAA teams saved: ${ncaaTeams.map(t => t.id).join(', ')}`);
+      }
+      
       res.json(prefs);
     } catch (err) {
       if (err instanceof z.ZodError) {

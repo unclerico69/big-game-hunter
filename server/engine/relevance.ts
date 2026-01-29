@@ -53,10 +53,19 @@ export function calculateRelevance(
   const teamBMatch = matchTeamByName(game.teamB || "");
   const gameTeamIds = [teamAMatch?.id, teamBMatch?.id].filter(Boolean) as string[];
   const gameMarketIds = [teamAMatch?.marketId, teamBMatch?.marketId].filter(Boolean) as string[];
+  
+  // Determine if this is a college game
+  const gameLeagueId = game.league?.toUpperCase() || "";
+  const leagueData = getLeagueById(gameLeagueId);
+  const isCollegeGame = leagueData?.isCollege || game.isCollege || false;
+  
+  // Check if it's a Saturday game (college football Saturday)
+  const gameDate = new Date(game.startTime);
+  const isSaturday = gameDate.getDay() === 6;
+  const isCollegeFootball = gameLeagueId === "NCAA_FB";
 
   // Preferred Teams Boost (+40 base with priority decay)
   const favoriteTeams = (preferences.favoriteTeams as { id: string; priority: number }[]) ?? [];
-  const preferredTeamIds = favoriteTeams.map(t => t.id);
   
   const matchedTeamFav = favoriteTeams.find(fav => gameTeamIds.includes(fav.id));
   if (matchedTeamFav) {
@@ -65,12 +74,17 @@ export function calculateRelevance(
     // Priority 0 = +40, Priority 1 = +35, Priority 2 = +30, etc.
     const boost = Math.max(10, 40 - (priority * 5));
     score += boost;
-    reasons.push(`Home team: ${teamData?.name || matchedTeamFav.id} (+${boost})`);
+    
+    // NCAA-aware explanation
+    if (isCollegeGame && teamData?.isCollege) {
+      reasons.push(`Preferred college team: ${teamData.name} (+${boost})`);
+    } else {
+      reasons.push(`Home team: ${teamData?.name || matchedTeamFav.id} (+${boost})`);
+    }
   }
 
   // Preferred Markets Boost (+25 base with priority decay)
   const favoriteMarkets = (preferences.favoriteMarkets as { id: string; priority: number }[]) ?? [];
-  const preferredMarketIds = favoriteMarkets.map(m => m.id);
   
   const matchedMarketFav = favoriteMarkets.find(fav => gameMarketIds.includes(fav.id));
   if (matchedMarketFav) {
@@ -79,7 +93,13 @@ export function calculateRelevance(
     // Priority 0 = +25, Priority 1 = +22, Priority 2 = +19, etc.
     const boost = Math.max(5, 25 - (priority * 3));
     score += boost;
-    reasons.push(`Local market: ${marketData?.name || matchedMarketFav.id} (+${boost})`);
+    
+    // NCAA-aware explanation
+    if (isCollegeGame) {
+      reasons.push(`Local college game: ${marketData?.name || matchedMarketFav.id} (+${boost})`);
+    } else {
+      reasons.push(`Local market: ${marketData?.name || matchedMarketFav.id} (+${boost})`);
+    }
   }
 
   // League Priority Boost (including NCAA leagues)
@@ -87,8 +107,6 @@ export function calculateRelevance(
     ? preferences.leaguePriority 
     : getDefaultLeaguePriority();
   
-  const gameLeagueId = game.league?.toUpperCase() || "";
-  const leagueData = getLeagueById(gameLeagueId);
   const priorityIndex = leaguePriority.findIndex(l => l.toUpperCase() === gameLeagueId);
   const totalLeagues = leaguePriority.length || 7;
   
@@ -101,6 +119,10 @@ export function calculateRelevance(
     }
   }
 
+  // College Football Saturday bonus explanation (no extra points, just explanation)
+  if (isCollegeFootball && isSaturday) {
+    reasons.push("College football Saturday game");
+  }
 
   // Platform Popularity Boost (+8 if assigned to other TVs)
   const assignedCount = stats?.[game.id] || 0;
@@ -124,7 +146,14 @@ export function calculateRelevance(
 
   // Hotness indicator (for display, not scoring - already factored into base)
   if (game.hotnessScore > 80) {
-    reasons.push("High excitement");
+    // Check if both teams are ranked (top-ranked matchup indicator)
+    const teamARanked = teamAMatch?.name?.includes("#") || false;
+    const teamBRanked = teamBMatch?.name?.includes("#") || false;
+    if (isCollegeGame && (teamARanked || teamBRanked)) {
+      reasons.push("Top-ranked college matchup");
+    } else {
+      reasons.push("High excitement");
+    }
   }
 
   // 3. Penalties
@@ -146,7 +175,19 @@ export function calculateRelevance(
   }
 
   // 4. Sort reasons by importance
-  const reasonPriority = ["Home team", "Local market", "priority", "College", "Live", "Starting", "Popular", "excitement"];
+  const reasonPriority = [
+    "Preferred college team", 
+    "Home team", 
+    "Local college game", 
+    "Local market", 
+    "priority", 
+    "Top-ranked college", 
+    "College football Saturday",
+    "Live", 
+    "Starting", 
+    "Popular", 
+    "excitement"
+  ];
   const sortedReasons = reasons.sort((a, b) => {
     const indexA = reasonPriority.findIndex(o => a.includes(o));
     const indexB = reasonPriority.findIndex(o => b.includes(o));
