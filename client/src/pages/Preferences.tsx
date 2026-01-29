@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { usePreferences, useUpdatePreferences } from "@/hooks/use-preferences";
-import { Loader2, Save, Trash2, Trophy, MapPin, Search, Plus, GripVertical, Layers } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Loader2, Save, Trash2, Trophy, MapPin, Search, Plus, GripVertical, Layers, Tv } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "@/hooks/use-toast";
@@ -12,6 +13,13 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface TvProvider {
+  id: number;
+  name: string;
+  country: string;
+}
 import {
   DndContext,
   closestCenter,
@@ -69,11 +77,16 @@ function SortableItem({ id, children }: SortableItemProps) {
 export default function Preferences() {
   const { data: prefs, isLoading } = usePreferences();
   const updatePrefs = useUpdatePreferences();
+  
+  const { data: providers = [] } = useQuery<TvProvider[]>({
+    queryKey: ["/api/providers"],
+  });
 
   const [leagues, setLeagues] = useState<string[]>([]);
   const [favoriteTeams, setFavoriteTeams] = useState<{ id: string; priority: number }[]>([]);
   const [favoriteMarkets, setFavoriteMarkets] = useState<{ id: string; priority: number }[]>([]);
   const [preventRapidSwitching, setPreventRapidSwitching] = useState(true);
+  const [tvProviderId, setTvProviderId] = useState<number | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -95,6 +108,7 @@ export default function Preferences() {
       setFavoriteTeams((prefs.favoriteTeams as any[]) || []);
       setFavoriteMarkets((prefs.favoriteMarkets as any[]) || []);
       setPreventRapidSwitching(prefs.preventRapidSwitching ?? true);
+      setTvProviderId((prefs as any).tvProviderId ?? null);
     }
   }, [prefs]);
 
@@ -106,7 +120,8 @@ export default function Preferences() {
       favoriteTeams,
       favoriteMarkets,
       preventRapidSwitching,
-    }, {
+      tvProviderId,
+    } as any, {
       onSuccess: () => toast({ title: "Preferences Saved", description: "Algorithm weights updated." })
     });
   };
@@ -471,7 +486,30 @@ export default function Preferences() {
             <CardTitle>System Rules</CardTitle>
             <CardDescription>Hard constraints for the automation engine.</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Tv className="w-4 h-4 text-primary" />
+                <Label className="text-base">TV Provider</Label>
+              </div>
+              <p className="text-sm text-muted-foreground mb-2">Select your cable/streaming provider for channel numbers.</p>
+              <Select
+                value={tvProviderId?.toString() || "none"}
+                onValueChange={(value) => setTvProviderId(value === "none" ? null : parseInt(value))}
+              >
+                <SelectTrigger data-testid="select-tv-provider">
+                  <SelectValue placeholder="Select provider..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No provider selected</SelectItem>
+                  {providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id.toString()}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="text-base">Prevent rapid switching</Label>

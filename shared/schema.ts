@@ -43,6 +43,7 @@ export const preferences = pgTable("preferences", {
   favoriteMarkets: jsonb("favorite_markets").$type<{ id: string; priority: number }[]>().notNull().default([]),
   leaguePriority: jsonb("league_priority").$type<string[]>().notNull().default([]),
   preventRapidSwitching: boolean("prevent_rapid_switching").notNull().default(true),
+  tvProviderId: integer("tv_provider_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -63,6 +64,21 @@ export const beerOrders = pgTable("beer_orders", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// TV Provider table for channel mapping
+export const tvProviders = pgTable("tv_providers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  country: text("country").default("US"),
+});
+
+// Channel mapping table: provider -> network -> channel number
+export const channelMappings = pgTable("channel_mappings", {
+  id: serial("id").primaryKey(),
+  providerId: integer("provider_id").notNull(),
+  network: text("network").notNull(),
+  channelNumber: text("channel_number").notNull(),
+});
+
 // === SCHEMAS ===
 
 export const insertTvSchema = createInsertSchema(tvs).omit({ id: true });
@@ -70,6 +86,8 @@ export const insertGameSchema = createInsertSchema(games).omit({ id: true });
 export const insertPreferencesSchema = createInsertSchema(preferences).omit({ id: true });
 export const insertRequestSchema = createInsertSchema(requests).omit({ id: true, createdAt: true });
 export const insertBeerOrderSchema = createInsertSchema(beerOrders).omit({ id: true, createdAt: true });
+export const insertTvProviderSchema = createInsertSchema(tvProviders).omit({ id: true });
+export const insertChannelMappingSchema = createInsertSchema(channelMappings).omit({ id: true });
 
 // === TYPES ===
 
@@ -87,6 +105,12 @@ export type InsertRequest = z.infer<typeof insertRequestSchema>;
 
 export type BeerOrder = typeof beerOrders.$inferSelect;
 export type InsertBeerOrder = z.infer<typeof insertBeerOrderSchema>;
+
+export type TvProvider = typeof tvProviders.$inferSelect;
+export type InsertTvProvider = z.infer<typeof insertTvProviderSchema>;
+
+export type ChannelMapping = typeof channelMappings.$inferSelect;
+export type InsertChannelMapping = z.infer<typeof insertChannelMappingSchema>;
 
 // === API SPECIFIC TYPES ===
 

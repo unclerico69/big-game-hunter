@@ -1,10 +1,11 @@
 import { db } from "./db";
 import {
-  tvs, games, preferences, requests, beerOrders,
+  tvs, games, preferences, requests, beerOrders, tvProviders, channelMappings,
   type Tv, type InsertTv, type UpdateTvRequest,
   type Game, type InsertGame,
   type Preference, type InsertPreference,
-  type Request, type BeerOrder
+  type Request, type BeerOrder,
+  type TvProvider, type ChannelMapping
 } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
@@ -22,6 +23,8 @@ export interface IStorage {
   getTvRequests(): Promise<Request[]>;
   createBeerOrder(type: string, tableNumber: string): Promise<BeerOrder>;
   getPlatformStats(): Promise<Record<number, number>>;
+  getTvProviders(): Promise<TvProvider[]>;
+  getTvProvider(id: number): Promise<TvProvider | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -169,6 +172,15 @@ export class DatabaseStorage implements IStorage {
   async createBeerOrder(type: string, tableNumber: string): Promise<BeerOrder> {
     const [created] = await db.insert(beerOrders).values({ type, tableNumber }).returning();
     return created;
+  }
+
+  async getTvProviders(): Promise<TvProvider[]> {
+    return await db.select().from(tvProviders).orderBy(tvProviders.name);
+  }
+
+  async getTvProvider(id: number): Promise<TvProvider | undefined> {
+    const [provider] = await db.select().from(tvProviders).where(eq(tvProviders.id, id));
+    return provider;
   }
 }
 

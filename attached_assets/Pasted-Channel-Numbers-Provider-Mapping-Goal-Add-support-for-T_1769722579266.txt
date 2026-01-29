@@ -1,0 +1,210 @@
+Channel Numbers & Provider Mapping
+
+Goal:
+Add support for TV channel numbers by mapping broadcast networks to provider-specific channels (e.g., Comcast, DirecTV, Spectrum), enabling the app to actually tune TVs — while keeping logic simple, deterministic, and MVP-safe.
+
+High-Level Strategy (important context for agent)
+
+We will NOT attempt to auto-detect providers or scrape data.
+
+Instead:
+
+Bars explicitly select their TV provider
+
+We maintain a provider → network → channel number mapping
+
+Channel numbers are used only at the moment of TV assignment
+
+If mapping is missing, fail gracefully
+
+Backend Changes
+1. Add TV Provider Model
+
+Create a table/model:
+
+TvProvider {
+  id
+  name              // "Comcast Xfinity", "DirecTV", "Spectrum"
+  country           // default "US"
+}
+
+
+Seed initial providers:
+
+Comcast Xfinity
+
+DirecTV
+
+Spectrum
+
+YouTube TV (optional, but nice)
+
+2. Add Channel Mapping Table
+ChannelMapping {
+  id
+  providerId
+  network           // "ESPN", "FOX", "CBS"
+  channelNumber     // string to support "12", "206", "206 HD"
+}
+
+
+Rules:
+
+network must match normalized broadcastNetwork names
+
+One provider can have many mappings
+
+Same network can exist across providers
+
+Seed only major networks:
+
+ESPN
+
+ESPN2
+
+FOX
+
+CBS
+
+NBC
+
+ABC
+
+TNT
+
+TBS
+
+FS1
+
+CBSSN
+
+(Do NOT attempt RSNs yet)
+
+3. Bar-Level Provider Selection
+
+Extend bar / venue config:
+
+Bar {
+  tvProviderId
+}
+
+
+Default to null
+
+If null → channel numbers are hidden & TV assignment uses fallback behavior
+
+Game → Channel Resolution Logic
+4. Resolve Channel at Runtime
+
+When assigning a game to a TV:
+
+Get game.broadcastNetworks[]
+
+Get bar.tvProviderId
+
+Attempt to find first matching channel mapping
+
+Attach to assignment:
+
+resolvedChannelNumber
+resolvedNetwork
+
+
+Rules:
+
+Prefer national networks over local
+
+Prefer ESPN/FOX/TNT ordering
+
+If no mapping found → soft fail
+
+TV Assignment Logic Update
+5. Update TV Assignment Payload
+
+When assigning a game to a TV:
+
+{
+  tvId,
+  gameId,
+  network,
+  channelNumber,
+  lockedUntil
+}
+
+
+Behavior:
+
+If channel exists → tune TV
+
+If channel missing → do NOT change TV
+
+Log warning for visibility
+
+Frontend Changes (Minimal)
+6. Display Channel When Available
+
+In:
+
+Game cards
+
+TV assignment confirmation
+
+Format:
+
+ESPN • Channel 206
+
+
+If provider missing:
+
+ESPN • Channel unavailable
+
+Preferences / Settings
+7. Provider Selection UI
+
+Add to Preferences or Setup:
+
+Dropdown: “TV Provider”
+
+Persist to bar config
+
+No auto-detection
+
+Explainability Enhancements
+8. Add Channel Explanation
+
+Append to relevanceReasons:
+
+“Available on ESPN (Channel 206)”
+
+“National broadcast on FOX”
+
+This helps staff trust the system.
+
+Safety & Constraints
+9. Anti-Thrash Compatibility
+
+Respect existing TV lock logic
+
+Do NOT override locked TVs even if a better channel exists
+
+Channel resolution happens after lock validation
+
+Non-Goals (explicitly block agent)
+
+❌ No provider auto-detection
+❌ No scraping
+❌ No RSN complexity
+❌ No international channels
+❌ No per-TV provider differences
+
+Acceptance Criteria
+
+Bars can select a TV provider
+
+Games resolve to correct channel numbers
+
+TV assignments include channel numbers
+
+App works gracefully without provider data
+
+No schema regressions

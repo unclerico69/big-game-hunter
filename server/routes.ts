@@ -9,6 +9,7 @@ import { listLocks, createLock } from "./api/locks";
 import { TEAMS, getTeamById } from "../shared/data/teams";
 import { MARKETS } from "../shared/data/markets";
 import { LEAGUES, getDefaultLeaguePriority } from "../shared/data/leagues";
+import { seedProviderData, resolveChannel } from "./services/channelResolver";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -59,10 +60,23 @@ export async function registerRoutes(
       }
 
       console.log(`[api/tvs/assign] Found game: ${game.title}`);
+      
+      // Resolve channel number based on provider
+      const prefs = await storage.getPreferences();
+      const providerId = (prefs as any)?.tvProviderId ?? null;
+      let resolvedChannel = game.channel;
+      
+      if (providerId && game.channel) {
+        const resolution = await resolveChannel([game.channel], providerId);
+        if (resolution.resolvedChannelNumber) {
+          resolvedChannel = `${resolution.resolvedNetwork} (Ch. ${resolution.resolvedChannelNumber})`;
+          console.log(`[api/tvs/assign] Resolved channel: ${resolvedChannel}`);
+        }
+      }
 
       const tv = await storage.updateTv(tvId, {
         currentGameId: game.id,
-        currentChannel: game.channel,
+        currentChannel: resolvedChannel,
         manualOverride: true
       });
       res.json(tv);
@@ -203,10 +217,22 @@ export async function registerRoutes(
     const { tvId, gameId } = req.body;
     const game = await storage.getGame(gameId);
     if (game) {
+        // Resolve channel number based on provider
+        const prefs = await storage.getPreferences();
+        const providerId = (prefs as any)?.tvProviderId ?? null;
+        let resolvedChannel = game.channel;
+        
+        if (providerId && game.channel) {
+          const resolution = await resolveChannel([game.channel], providerId);
+          if (resolution.resolvedChannelNumber) {
+            resolvedChannel = `${resolution.resolvedNetwork} (Ch. ${resolution.resolvedChannelNumber})`;
+          }
+        }
+        
         await storage.updateTv(tvId, {
             currentGameId: game.id,
-            currentChannel: game.channel,
-            manualOverride: true // Explicitly disable auto-tuner
+            currentChannel: resolvedChannel,
+            manualOverride: true
         });
         res.json({ success: true });
     } else {
@@ -225,10 +251,22 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Game not found" });
       }
 
+      // Resolve channel number based on provider
+      const prefs = await storage.getPreferences();
+      const providerId = (prefs as any)?.tvProviderId ?? null;
+      let resolvedChannel = game.channel;
+      
+      if (providerId && game.channel) {
+        const resolution = await resolveChannel([game.channel], providerId);
+        if (resolution.resolvedChannelNumber) {
+          resolvedChannel = `${resolution.resolvedNetwork} (Ch. ${resolution.resolvedChannelNumber})`;
+        }
+      }
+
       const updatedTv = await storage.updateTv(tvId, {
         currentGameId: game.id,
-        currentChannel: game.channel,
-        manualOverride: true // Disable auto-tuner for this TV
+        currentChannel: resolvedChannel,
+        manualOverride: true
       });
 
       res.json(updatedTv);
@@ -257,8 +295,35 @@ export async function registerRoutes(
     res.status(201).json(order);
   });
 
+  // === TV Providers ===
+  app.get("/api/providers", async (_req, res) => {
+    const providers = await storage.getTvProviders();
+    res.json(providers);
+  });
+
+  app.get("/api/providers/:id", async (req, res) => {
+    const provider = await storage.getTvProvider(Number(req.params.id));
+    if (!provider) return res.status(404).json({ message: "Provider not found" });
+    res.json(provider);
+  });
+
+  // === Channel Resolution ===
+  app.post("/api/resolve-channel", async (req, res) => {
+    try {
+      const { networks, providerId } = req.body;
+      if (!networks || !Array.isArray(networks)) {
+        return res.status(400).json({ message: "networks must be an array" });
+      }
+      const result = await resolveChannel(networks, providerId || null);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ message: "Channel resolution failed" });
+    }
+  });
+
   // Seed Data on Startup
   seedDatabase();
+  seedProviderData().catch(err => console.error("[Seed] Provider seed error:", err));
 
   return httpServer;
 }
