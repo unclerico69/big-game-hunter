@@ -49,28 +49,47 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
     reasons.push("Live game");
   }
 
-  // Score difference boost (additive)
+  // Step 4: Score Tension (Dominant Signal)
   if (game.scoreDiff !== null && game.scoreDiff !== undefined) {
-    if (game.scoreDiff <= 3) {
-      hotness += 30;
-      reasons.push("Nail-biter");
-    } else if (game.scoreDiff <= 7) {
+    if (game.scoreDiff <= 10) {
+      hotness += 10;
+    }
+    if (game.scoreDiff <= 7) {
       hotness += 15;
       reasons.push("Close game");
     }
+    if (game.scoreDiff <= 3) {
+      hotness += 25;
+      reasons.push("Nail-biter");
+    }
   }
 
-  // Late game boost (under 5 minutes remaining)
-  if (game.timeRemaining !== null && game.timeRemaining !== undefined && game.timeRemaining < 300) {
-    hotness += 25;
-    reasons.push("Final minutes");
+  // Step 5: Time Pressure
+  if (game.timeRemaining !== null && game.timeRemaining !== undefined) {
+    if (game.timeRemaining < 900) {
+      hotness += 10; // <15 min
+      reasons.push("4th quarter");
+    }
+    if (game.timeRemaining < 300) {
+      hotness += 20; // <5 min
+      reasons.push("Final minutes");
+    }
   }
 
-  // Overtime override - max hotness
+  // Step 6: Overtime / Endgame Overrides
+  // OT beats everything
   if (game.isOvertime === true) {
     hotness = 100;
     reasons.length = 0;
     reasons.push("Overtime");
+  }
+
+  // Step 7: Crowd Signal
+  // Crowd behavior amplifies drama
+  const assignedCount = game.assignedTvCount || 0;
+  if (assignedCount > 0) {
+    hotness += assignedCount * 12;
+    reasons.push(`${assignedCount} TVs watching`);
   }
 
   return {
