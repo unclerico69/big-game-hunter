@@ -7,30 +7,34 @@ import { fetchProScores } from "../services/proScoresApi";
 import { fetchNcaaScores } from "../services/ncaaScoresApi";
 
 /**
- * Match a score from external services to a base game from Odds API
+ * Match a score from external services to a base game
+ * Accepts either Odds API format (homeTeam/awayTeam) or DB format (teamA/teamB)
  */
 function findMatchingScore(game: any, scores: any[]) {
   const startTime = new Date(game.startTime).getTime();
   const thirtyMinutes = 30 * 60 * 1000;
+  
+  // Normalize team names - support both Odds API (homeTeam/awayTeam) and DB (teamA/teamB)
+  const gameHome = (game.homeTeam || game.teamA || "").toLowerCase();
+  const gameAway = (game.awayTeam || game.teamB || "").toLowerCase();
+  const gameLeague = (game.league || "").toUpperCase();
 
   return scores.find(s => {
     const sTime = new Date(s.startTime).getTime();
     const timeMatch = Math.abs(startTime - sTime) <= thirtyMinutes;
-    const leagueMatch = s.league.toUpperCase() === game.league.toUpperCase();
+    const leagueMatch = s.league.toUpperCase() === gameLeague;
     
-    const teamAMatch = 
-      s.homeTeam.toLowerCase().includes(game.teamA.toLowerCase()) || 
-      game.teamA.toLowerCase().includes(s.homeTeam.toLowerCase()) ||
-      s.awayTeam.toLowerCase().includes(game.teamA.toLowerCase()) ||
-      game.teamA.toLowerCase().includes(s.awayTeam.toLowerCase());
+    const sHome = s.homeTeam.toLowerCase();
+    const sAway = s.awayTeam.toLowerCase();
+    
+    const homeMatch = sHome.includes(gameHome) || gameHome.includes(sHome);
+    const awayMatch = sAway.includes(gameAway) || gameAway.includes(sAway);
+    
+    // Also check reversed (in case home/away are swapped)
+    const reversedMatch = (sHome.includes(gameAway) || gameAway.includes(sHome)) &&
+                          (sAway.includes(gameHome) || gameHome.includes(sAway));
 
-    const teamBMatch = 
-      s.homeTeam.toLowerCase().includes(game.teamB.toLowerCase()) || 
-      game.teamB.toLowerCase().includes(s.homeTeam.toLowerCase()) ||
-      s.awayTeam.toLowerCase().includes(game.teamB.toLowerCase()) ||
-      game.teamB.toLowerCase().includes(s.awayTeam.toLowerCase());
-
-    return timeMatch && leagueMatch && teamAMatch && teamBMatch;
+    return timeMatch && leagueMatch && (homeMatch && awayMatch || reversedMatch);
   });
 }
 
@@ -55,9 +59,9 @@ export async function getLiveGames(req: Request, res: Response) {
     let sourceData = externalGames.length > 0 ? externalGames : [];
     let dataSourceName = externalGames.length > 0 ? "Odds API" : "Mock Fallback";
 
-    // Process Pro Games
+    // Process Pro Games from Odds API
     const now = new Date();
-    const gamesToProcess = await Promise.all(sourceData.map(async (eg) => {
+    const proGamesProcessed = await Promise.all(sourceData.map(async (eg) => {
       const startTime = new Date(eg.startTime);
       const hasStarted = startTime <= now;
       
@@ -102,6 +106,49 @@ export async function getLiveGames(req: Request, res: Response) {
         isCollege: scoreData?.isCollege ?? false
       };
     }));
+
+    // Process NCAA scores as standalone games when they don't match Odds API games
+    const ncaaGamesProcessed = await Promise.all(ncaaScores.map(async (ns) => {
+      const title = `${ns.homeTeam} vs ${ns.awayTeam}`;
+      const existingGames = await storage.getGames();
+      
+      let dbGame = existingGames.find(g => 
+        g.title === title && 
+        Math.abs(g.startTime.getTime() - ns.startTime.getTime()) < 60000
+      );
+      
+      if (!dbGame) {
+        dbGame = await storage.createGame({
+          title,
+          teamA: ns.homeTeam,
+          teamB: ns.awayTeam,
+          league: ns.league,
+          channel: "ESPN",
+          startTime: ns.startTime,
+          status: ns.status,
+          relevance: 0,
+          assignedTvCount: 0
+        });
+      } else if (dbGame.status !== ns.status) {
+        await storage.updateGameStatus(dbGame.id, ns.status);
+        dbGame.status = ns.status;
+      }
+
+      return {
+        ...dbGame,
+        broadcastNetwork: "ESPN",
+        homeScore: ns.homeScore,
+        awayScore: ns.awayScore,
+        scoreDiff: Math.abs(ns.homeScore - ns.awayScore),
+        timeRemaining: ns.timeRemaining,
+        period: ns.period,
+        isOvertime: ns.isOvertime,
+        isCollege: true
+      };
+    }));
+
+    // Combine all games - pro games first, then NCAA
+    const gamesToProcess = [...proGamesProcessed, ...ncaaGamesProcessed];
 
     const tvIdParam = req.query.tvId;
     const tvContext = tvIdParam ? await storage.getTv(Number(tvIdParam)) : null;

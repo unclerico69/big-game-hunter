@@ -80,10 +80,36 @@ export function GameCard({ game, compact = false, action }: GameCardProps) {
           </div>
         </div>
 
-        <h3 className="text-lg font-display font-bold leading-tight mb-1 flex items-center gap-2">
-          {game.teamA} <span className="text-muted-foreground font-normal mx-1">vs</span> {game.teamB}
-          {isHot && <Flame className="w-5 h-5 text-orange-500 fill-orange-500 animate-pulse" />}
-        </h3>
+        {/* Score display for live games */}
+        {isLive && (game as any).homeScore !== null && (game as any).awayScore !== null ? (
+          <div className="space-y-1 mb-2">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-display font-bold leading-tight flex items-center gap-2">
+                {game.teamA}
+              </span>
+              <span className="text-2xl font-black tabular-nums">{(game as any).homeScore}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-display font-bold leading-tight">
+                {game.teamB}
+              </span>
+              <span className="text-2xl font-black tabular-nums">{(game as any).awayScore}</span>
+            </div>
+            {(game as any).period && (
+              <div className="text-xs font-medium text-muted-foreground mt-1">
+                {(game as any).period}
+                {(game as any).timeRemaining !== null && ` • ${Math.floor((game as any).timeRemaining / 60)}:${String((game as any).timeRemaining % 60).padStart(2, '0')}`}
+                {(game as any).isOvertime && <span className="text-orange-500 font-bold ml-2">OT</span>}
+              </div>
+            )}
+            {isHot && <Flame className="w-5 h-5 text-orange-500 fill-orange-500 animate-pulse" />}
+          </div>
+        ) : (
+          <h3 className="text-lg font-display font-bold leading-tight mb-1 flex items-center gap-2">
+            {game.teamA} <span className="text-muted-foreground font-normal mx-1">vs</span> {game.teamB}
+            {isHot && <Flame className="w-5 h-5 text-orange-500 fill-orange-500 animate-pulse" />}
+          </h3>
+        )}
         
         <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground">
           <Clock className="w-4 h-4" />
