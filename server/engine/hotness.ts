@@ -54,6 +54,22 @@ function getProfile(leagueId: string): PacingProfile {
 }
 
 /**
+ * Get sport-friendly name for display
+ */
+function getLeagueDisplayName(leagueId: string): string {
+  const names: Record<string, string> = {
+    NFL: "NFL",
+    NCAA_FB: "college football",
+    NBA: "NBA",
+    NCAA_MBB: "college basketball",
+    NCAA_WBB: "women's college basketball",
+    NHL: "NHL",
+    MLB: "MLB"
+  };
+  return names[leagueId] || leagueId;
+}
+
+/**
  * New Hotness Algorithm (Simple, Expressive, Sport-Aware)
  * 
  * Step 1: Zero the Baseline - hotness = 0
@@ -65,12 +81,13 @@ function getProfile(leagueId: string): PacingProfile {
  * Step 7: Crowd Signal - +12 per TV watching
  * Step 8: Clamp to 100
  */
-export function computeBaseHotnessWithReasons(game: any): HotnessResult {
+export function computeBaseHotnessWithReasons(game: any, enableLogging = false): HotnessResult {
   let hotness = 0;
   const reasons: string[] = [];
   
   const leagueId = game.leagueId || game.league || 'NFL';
   const profile = getProfile(leagueId);
+  const sportName = getLeagueDisplayName(leagueId);
 
   // Step 1: Zero the Baseline
   // No league, no preference, no hype yet.
@@ -82,22 +99,27 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
     const startTime = new Date(game.startTime);
     const timeUntilStart = (startTime.getTime() - now.getTime()) / 1000; // seconds
 
+    let result: HotnessResult;
     if (timeUntilStart > 60 * 60) {
-      return { score: 10, reasons: ["Scheduled (>1hr away)"] };
+      result = { score: 10, reasons: ["Scheduled (>1hr away)"] };
+    } else if (timeUntilStart > 30 * 60) {
+      result = { score: 20, reasons: ["Starting within the hour"] };
+    } else if (timeUntilStart > 10 * 60) {
+      result = { score: 30, reasons: ["Starting soon"] };
+    } else {
+      result = { score: 40, reasons: ["About to start"] };
     }
-    if (timeUntilStart > 30 * 60) {
-      return { score: 20, reasons: ["Starting within the hour"] };
+    
+    if (enableLogging) {
+      console.log(`[Hotness] league=${leagueId} status=${game.status} hotness=${result.score}`);
     }
-    if (timeUntilStart > 10 * 60) {
-      return { score: 30, reasons: ["Starting soon"] };
-    }
-    return { score: 40, reasons: ["About to start"] };
+    return result;
   }
 
   // Step 3: Live Game Core
   if (game.status === "Live") {
     hotness += 25;
-    reasons.push("Live game");
+    reasons.push(`Live ${sportName} game`);
   }
 
   // Step 4: Score Tension (Sport-Specific)
@@ -111,11 +133,17 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
     }
     if (scoreDiff <= closeThreshold * 2) {
       hotness += 15;
-      reasons.push("Close game");
+      reasons.push(`Close ${sportName} game`);
     }
     if (scoreDiff <= closeThreshold) {
       hotness += 25;
-      reasons.push("Nail-biter");
+      if (leagueId === 'NHL') {
+        reasons.push("One-goal game");
+      } else if (leagueId === 'MLB') {
+        reasons.push("Tight ballgame");
+      } else {
+        reasons.push("Nail-biter");
+      }
     }
   }
 
@@ -126,28 +154,46 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
     if (currentInning >= profile.lateInning) {
       const inningBonus = Math.round(15 * profile.inningMultiplier);
       hotness += inningBonus;
-      reasons.push(`${currentInning}th inning`);
-    }
-    if (currentInning >= 9) {
-      const ninthBonus = Math.round(20 * profile.inningMultiplier);
-      hotness += ninthBonus;
-      reasons.push("9th inning");
+      if (currentInning >= 9) {
+        const ninthBonus = Math.round(20 * profile.inningMultiplier);
+        hotness += ninthBonus;
+        reasons.push("Late-inning baseball drama");
+      } else {
+        reasons.push(`${currentInning}th inning stretch`);
+      }
     }
   } else {
     // Time-based sports (Football, Basketball, Hockey)
     const timeRemaining = game.timeRemaining;
     if (timeRemaining !== null && timeRemaining !== undefined) {
+      const timedProfile = profile as TimedPacingProfile;
+      
       // Outer window: approaching late game
-      if (timeRemaining < profile.lateGameWindow * 3) {
-        const earlyBonus = Math.round(10 * profile.timeMultiplier);
+      if (timeRemaining < timedProfile.lateGameWindow * 3) {
+        const earlyBonus = Math.round(10 * timedProfile.timeMultiplier);
         hotness += earlyBonus;
-        reasons.push("Late in game");
+        
+        if (leagueId === 'NHL') {
+          reasons.push("3rd period intensity");
+        } else if (leagueId === 'NFL' || leagueId === 'NCAA_FB') {
+          reasons.push("4th quarter");
+        } else {
+          reasons.push("Late in game");
+        }
       }
+      
       // Inner window: crunch time
-      if (timeRemaining < profile.lateGameWindow) {
-        const lateBonus = Math.round(20 * profile.timeMultiplier);
+      if (timeRemaining < timedProfile.lateGameWindow) {
+        const lateBonus = Math.round(20 * timedProfile.timeMultiplier);
         hotness += lateBonus;
-        reasons.push("Crunch time");
+        
+        if (leagueId === 'NFL' || leagueId === 'NCAA_FB') {
+          reasons.push("Final minutes of football game");
+        } else if (leagueId === 'NHL') {
+          reasons.push("Close NHL game late");
+        } else {
+          reasons.push("Crunch time");
+        }
       }
     }
   }
@@ -156,7 +202,18 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
   if (game.isOvertime === true) {
     hotness = 100;
     reasons.length = 0;
-    reasons.push("Overtime");
+    if (leagueId === 'MLB') {
+      reasons.push("Extra innings");
+    } else {
+      reasons.push("Overtime");
+    }
+  }
+  
+  // Walk-off potential (MLB specific)
+  if (leagueId === 'MLB' && game.isWalkOffPotential === true) {
+    hotness = 100;
+    reasons.length = 0;
+    reasons.push("Walk-off situation");
   }
 
   // Step 7: Crowd Signal
@@ -167,8 +224,14 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
   }
 
   // Step 8: Clamp
+  const finalScore = Math.min(hotness, 100);
+  
+  if (enableLogging) {
+    console.log(`[Hotness] league=${leagueId} scoreDiff=${scoreDiff ?? 'N/A'} timeRemaining=${game.timeRemaining ?? 'N/A'} hotness=${finalScore}`);
+  }
+  
   return {
-    score: Math.min(hotness, 100),
+    score: finalScore,
     reasons
   };
 }
