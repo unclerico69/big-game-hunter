@@ -10,7 +10,7 @@ import { fetchNcaaScores } from "../services/ncaaScoresApi";
  * Match a score from external services to a base game
  * Accepts either Odds API format (homeTeam/awayTeam) or DB format (teamA/teamB)
  */
-function findMatchingScore(game: any, scores: any[]) {
+function findMatchingScore(game: any, scores: any[], logFailures: boolean = false): any | null {
   const startTime = new Date(game.startTime).getTime();
   const thirtyMinutes = 30 * 60 * 1000;
   
@@ -19,7 +19,7 @@ function findMatchingScore(game: any, scores: any[]) {
   const gameAway = (game.awayTeam || game.teamB || "").toLowerCase();
   const gameLeague = (game.league || "").toUpperCase();
 
-  return scores.find(s => {
+  const match = scores.find(s => {
     const sTime = new Date(s.startTime).getTime();
     const timeMatch = Math.abs(startTime - sTime) <= thirtyMinutes;
     const leagueMatch = s.league.toUpperCase() === gameLeague;
@@ -36,6 +36,13 @@ function findMatchingScore(game: any, scores: any[]) {
 
     return timeMatch && leagueMatch && (homeMatch && awayMatch || reversedMatch);
   });
+
+  // Log when score matching fails for live games
+  if (!match && logFailures && game.isLive) {
+    console.log(`[Scores] Match failed for: ${gameHome} vs ${gameAway} (${gameLeague})`);
+  }
+
+  return match || null;
 }
 
 /**
@@ -57,7 +64,11 @@ export async function getLiveGames(req: Request, res: Response) {
     
     const allScores = [...proScores, ...ncaaScores];
     let sourceData = externalGames.length > 0 ? externalGames : [];
-    let dataSourceName = externalGames.length > 0 ? "Odds API" : "Mock Fallback";
+
+    // Track enrichment stats
+    let proGamesEnriched = 0;
+    let ncaaGamesEnriched = 0;
+    let gamesWithLiveScores = 0;
 
     // Process Pro Games from Odds API
     const now = new Date();
@@ -74,8 +85,13 @@ export async function getLiveGames(req: Request, res: Response) {
       );
       
       // Match with real-time scores
-      const scoreData = findMatchingScore(eg, allScores);
+      const scoreData = findMatchingScore(eg, allScores, true);
       const status = scoreData ? scoreData.status : (hasStarted && eg.isLive ? "Live" : "Upcoming");
+      
+      if (scoreData) {
+        proGamesEnriched++;
+        if (status === "Live") gamesWithLiveScores++;
+      }
 
       if (!dbGame) {
         dbGame = await storage.createGame({
@@ -134,6 +150,10 @@ export async function getLiveGames(req: Request, res: Response) {
         dbGame.status = ns.status;
       }
 
+      // Track NCAA enrichment
+      ncaaGamesEnriched++;
+      if (ns.status === "Live") gamesWithLiveScores++;
+
       return {
         ...dbGame,
         broadcastNetwork: "ESPN",
@@ -146,6 +166,11 @@ export async function getLiveGames(req: Request, res: Response) {
         isCollege: true
       };
     }));
+
+    // Log enrichment summary
+    console.log(`[Scores] Pro games enriched: ${proGamesEnriched}`);
+    console.log(`[Scores] NCAA games enriched: ${ncaaGamesEnriched}`);
+    console.log(`[Scores] Games with live scores: ${gamesWithLiveScores}`);
 
     // Combine all games - pro games first, then NCAA
     // Filter out games that are finished or too far in the past (>4 hours ago)
