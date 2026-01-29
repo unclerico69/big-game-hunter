@@ -37,6 +37,17 @@ Three core entities:
 - **Lock Mechanism**: TVs can be locked for specific durations (15/30/60 mins) to prevent auto-changes during important moments
 - **Relevance Scoring**: Games have a 0-100 relevance score calculated based on user preferences
 
+### Canonical Data Registries
+Located in `shared/data/`:
+- **leagues.ts**: 7 leagues (NFL, NBA, NHL, MLB, NCAA_FB, NCAA_MBB, NCAA_WBB) with `id`, `name`, `shortName`, `isCollege`, `defaultPriority`
+- **teams.ts**: 200+ teams across all leagues with `id`, `name`, `shortName`, `leagueId`, `isCollege`, `marketId`, `conference`
+- **markets.ts**: 100+ US/Canadian markets with `id`, `name`, `region`
+
+Helper functions for lookups:
+- `getLeagueById()`, `getDefaultLeaguePriority()`, `isCollegeLeague()`
+- `getTeamById()`, `getTeamsByLeague()`, `searchTeams()`, `matchTeamByName()`
+- `getMarketById()`, `getMarketsByRegion()`
+
 ### Project Structure
 ```
 client/           # React frontend
@@ -48,9 +59,12 @@ server/           # Express backend
   routes.ts       # API endpoint handlers
   storage.ts      # Database access layer
   db.ts           # Database connection
+  engine/         # Relevance and hotness scoring
+  services/       # External API integrations (ESPN, API-Sports, Odds API)
 shared/           # Shared between frontend and backend
   schema.ts       # Drizzle schema and Zod types
   routes.ts       # API route definitions
+  data/           # Canonical registries for leagues, teams, markets
 ```
 
 ## External Dependencies

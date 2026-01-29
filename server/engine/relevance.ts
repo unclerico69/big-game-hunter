@@ -66,12 +66,12 @@ export function calculateRelevance(
   // Market Boost
   const favoriteMarkets = (preferences.favoriteMarkets as any[]) ?? [];
   // Find markets associated with the teams in this game
-  const gameTeamIds = TEAMS.filter(t => 
+  const gameTeamMarkets = TEAMS.filter(t => 
     game.teamA?.toLowerCase().includes(t.name.toLowerCase()) || 
     game.teamB?.toLowerCase().includes(t.name.toLowerCase())
-  ).map(t => t.market);
+  ).map(t => t.marketId);
 
-  const matchedMarketFav = favoriteMarkets.find(fav => gameTeamIds.includes(fav.id));
+  const matchedMarketFav = favoriteMarkets.find(fav => gameTeamMarkets.includes(fav.id));
 
   if (matchedMarketFav) {
     const marketData = MARKETS.find(m => m.id === matchedMarketFav.id);
