@@ -1,6 +1,7 @@
 import { Game, Preference } from "@shared/schema";
 import { TEAMS } from "../../shared/data/teams";
 import { MARKETS } from "../../shared/data/markets";
+import { LEAGUES, getLeagueById, getDefaultLeaguePriority } from "../../shared/data/leagues";
 
 export interface RelevanceResult {
   score: number;
@@ -80,17 +81,22 @@ export function calculateRelevance(
     reasons.push(`Local interest (${marketData?.name})`);
   }
 
-  // League Priority Boosts
-  const leaguePriority = preferences.leaguePriority ?? ["NFL", "NBA", "MLB", "NHL"];
-  const league = game.league?.toUpperCase() || "";
-  const priorityIndex = leaguePriority.findIndex(l => l.toUpperCase() === league);
+  // League Priority Boosts (now supports NCAA leagues)
+  const leaguePriority = preferences.leaguePriority?.length 
+    ? preferences.leaguePriority 
+    : getDefaultLeaguePriority();
+  const leagueId = game.league?.toUpperCase() || "";
+  const leagueData = getLeagueById(leagueId);
+  const priorityIndex = leaguePriority.findIndex(l => l.toUpperCase() === leagueId);
   
   if (priorityIndex === 0) {
     score += 10;
-    reasons.push(`High league priority (${league})`);
+    reasons.push(`High league priority (${leagueData?.shortName || leagueId})`);
   } else if (priorityIndex === 1) {
     score += 5;
-    reasons.push(`Preferred league (${league})`);
+    reasons.push(`Preferred league (${leagueData?.shortName || leagueId})`);
+  } else if (priorityIndex >= 2 && priorityIndex <= 3) {
+    score += 2;
   }
 
   // Platform Popularity Boost (+10 if assignedTvCount > 0)
