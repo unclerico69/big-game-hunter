@@ -59,6 +59,11 @@ export class DatabaseStorage implements IStorage {
       (fields as any).lockedUntil = null;
       (fields as any).manualOverride = false;
     }
+    
+    // Set assignedAt when game changes
+    if ('currentGameId' in fields && fields.currentGameId !== currentTv.currentGameId) {
+      (fields as any).assignedAt = new Date();
+    }
 
     // Handle game assignment counts if currentGameId is being changed
     if ('currentGameId' in fields && fields.currentGameId !== currentTv.currentGameId) {

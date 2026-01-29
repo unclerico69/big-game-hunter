@@ -1,0 +1,150 @@
+🎯 Objective
+
+Implement anti-thrash TV lock logic so TVs do not rapidly switch between games.
+This must work alongside existing manual TV locks (up to 2 hours) and only affect automatic assignment behavior.
+
+🧩 Step 1: Distinguish Manual vs Automatic Locks
+
+Ensure each TV assignment has:
+
+{
+  tvId: string
+  gameId: string
+  assignedAt: number
+  manualLockUntil?: number
+}
+
+
+Rules:
+
+If manualLockUntil exists and is in the future → do not allow any automatic switches
+
+Anti-thrash logic applies only when no manual lock is active
+
+🧱 Step 2: Add Automatic Lock Metadata
+
+Add automatic assignment metadata:
+
+{
+  autoLockUntil: number
+}
+
+
+Set autoLockUntil when:
+
+A TV is auto-assigned or auto-switched
+
+Default:
+
+autoLockUntil = assignedAt + 8 minutes
+
+⛔ Step 3: Endgame Protection (No Switch Allowed)
+
+Define protected game states:
+
+Football (NFL / NCAAF)
+
+Final 5 minutes
+
+Overtime
+
+Basketball (NBA / NCAAM / NCAAW)
+
+Final 2 minutes
+
+Overtime
+
+Hockey (NHL)
+
+Final 5 minutes
+
+Overtime
+
+Baseball (MLB)
+
+8th inning or later
+
+Walk-off situations
+
+Create:
+
+game.isProtectedEndgame = boolean
+
+
+If currentGame.isProtectedEndgame === true:
+→ Disallow automatic switching entirely
+
+🔥 Step 4: Hotness Delta Threshold
+
+Define:
+
+HOTNESS_DELTA_THRESHOLD = 15
+
+
+Allow an automatic switch only if:
+
+challenger.hotness >= current.hotness + HOTNESS_DELTA_THRESHOLD
+
+
+If not, keep the current game.
+
+⏱️ Step 5: Automatic Lock Duration Enforcement
+
+If:
+
+now < autoLockUntil
+
+
+Then:
+→ Disallow automatic switching, unless:
+
+Challenger hotness ≥ 90
+
+OR challenger is in protected endgame and current game is not
+
+🔄 Step 6: Decision Flow (Authoritative)
+
+Implement automatic switching logic in this order:
+
+If manual lock active → KEEP
+
+If current game is protected endgame → KEEP
+
+If auto lock active → KEEP
+
+If challenger hotness < current hotness + delta → KEEP
+
+Otherwise → SWITCH
+
+This order is critical.
+
+🧠 Step 7: Explainability (Optional but Recommended)
+
+Attach reasons when a switch is prevented:
+
+switchDecisionReason:
+- "Manual lock active"
+- "Endgame protection"
+- "Auto-lock active"
+- "Hotness delta not met"
+
+
+Helpful for debugging and UI transparency.
+
+🧪 Step 8: Logging & Validation
+
+Add logs:
+
+[AutoAssign] TV=3 KEEP (Endgame protection)
+[AutoAssign] TV=5 KEEP (Auto-lock active)
+[AutoAssign] TV=2 SWITCH (Hotness +22)
+
+🚫 Constraints
+
+Do not alter manual lock behavior
+
+Do not reduce max manual lock duration
+
+Automatic logic must never override manual locks
+
+Fail safely (KEEP) if any data is missing

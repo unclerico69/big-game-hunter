@@ -5,6 +5,50 @@ export interface HotnessResult {
   reasons: string[];
 }
 
+export interface GameState {
+  league: string;
+  status: string;
+  timeRemaining?: number;
+  currentInning?: number;
+  isOvertime?: boolean;
+  isWalkOffPotential?: boolean;
+}
+
+/**
+ * Determines if a game is in a protected endgame state
+ * Based on sport-specific rules - used by auto-assign engine
+ */
+export function isProtectedEndgame(game: GameState): boolean {
+  if (game.isOvertime) return true;
+  
+  const league = game.league;
+  const timeRemaining = game.timeRemaining;
+  const currentInning = game.currentInning;
+  
+  // Football (NFL / NCAA_FB) - Final 5 minutes or OT
+  if (league === 'NFL' || league === 'NCAA_FB') {
+    if (timeRemaining !== undefined && timeRemaining <= 300) return true;
+  }
+  
+  // Basketball (NBA / NCAA_MBB / NCAA_WBB) - Final 2 minutes or OT
+  if (league === 'NBA' || league === 'NCAA_MBB' || league === 'NCAA_WBB') {
+    if (timeRemaining !== undefined && timeRemaining <= 120) return true;
+  }
+  
+  // Hockey (NHL) - Final 5 minutes or OT
+  if (league === 'NHL') {
+    if (timeRemaining !== undefined && timeRemaining <= 300) return true;
+  }
+  
+  // Baseball (MLB) - 8th inning or later, or walk-off situation
+  if (league === 'MLB') {
+    if (currentInning !== undefined && currentInning >= 8) return true;
+    if (game.isWalkOffPotential) return true;
+  }
+  
+  return false;
+}
+
 /**
  * Sport-Specific Pacing Profiles
  * 

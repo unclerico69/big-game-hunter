@@ -16,6 +16,9 @@ export const tvs = pgTable("tvs", {
   manualOverride: boolean("manual_override").default(false),
   status: text("status").default("active"),
   lastUpdated: timestamp("last_updated").defaultNow(),
+  // Anti-thrash fields
+  assignedAt: timestamp("assigned_at"),
+  autoLockUntil: timestamp("auto_lock_until"),
 });
 
 export const games = pgTable("games", {
