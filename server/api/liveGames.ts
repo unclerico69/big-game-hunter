@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { storage } from "../storage";
 import { calculateRelevance } from "../engine/relevance";
-import { computeBaseHotness, computeFinalHotness } from "../engine/hotness";
+import { computeBaseHotnessWithReasons } from "../engine/hotness";
 import { fetchLiveGames } from "../integrations/oddsApi";
 import { fetchProScores } from "../services/proScoresApi";
 import { fetchNcaaScores } from "../services/ncaaScoresApi";
@@ -169,7 +169,10 @@ export async function getLiveGames(req: Request, res: Response) {
         assignedTvCount: stats[g.id] || 0 
       };
 
-      const hotnessScore = computeFinalHotness(gameForScoring, prefs);
+      // Get hotness with reasons
+      const hotnessResult = computeBaseHotnessWithReasons(gameForScoring);
+      const hotnessScore = hotnessResult.score;
+      
       const relevanceResult = calculateRelevance(
         { ...gameForScoring, hotnessScore }, 
         prefs, 
@@ -177,10 +180,22 @@ export async function getLiveGames(req: Request, res: Response) {
         tvContext ? { lastUpdated: tvContext.lastUpdated } : undefined
       );
 
+      // Combine hotness reasons with preference-based reasons
+      // Filter relevance reasons to only include preference-based ones
+      const preferenceReasons = relevanceResult.reasons.filter(r => 
+        r.includes("Preferred team") || 
+        r.includes("Local interest") ||
+        r.includes("league priority")
+      );
+      
+      // Build whyThisGame from hotness + preference reasons (deduplicated)
+      const whyThisGame = Array.from(new Set([...hotnessResult.reasons, ...preferenceReasons]));
+
       return {
         ...g,
         relevanceScore: relevanceResult.score,
         reasons: relevanceResult.reasons,
+        whyThisGame,
         hotnessScore,
         assignedTvCount: stats[g.id] || 0
       };
