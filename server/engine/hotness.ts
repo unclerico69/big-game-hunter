@@ -14,6 +14,28 @@ export function computeBaseHotness(game: any): number {
   // Status-based boost
   if (game.status === "Live") {
     score += 30;
+
+    // Score difference boost (Max +30)
+    // Close games (0-7 points diff) get the most boost
+    const diff = Math.abs(game.scoreDiff ?? 15);
+    if (diff <= 3) score += 30;
+    else if (diff <= 7) score += 20;
+    else if (diff <= 14) score += 10;
+
+    // Time-based boost (Max +30)
+    // Late in game (under 5 mins remaining or deep in periods)
+    if (game.timeRemaining !== null) {
+      if (game.timeRemaining <= 300) score += 30; // 5 mins left
+      else if (game.timeRemaining <= 600) score += 15; // 10 mins left
+    } else if (game.period) {
+      const p = game.period.toLowerCase();
+      if (p.includes("4th") || p.includes("2nd half") || p.includes("3rd period")) score += 20;
+    }
+
+    // Overtime boost
+    if (game.isOvertime) {
+      score += 40;
+    }
   }
 
   // Time-based proximity boost
