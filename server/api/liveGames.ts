@@ -148,7 +148,17 @@ export async function getLiveGames(req: Request, res: Response) {
     }));
 
     // Combine all games - pro games first, then NCAA
-    const gamesToProcess = [...proGamesProcessed, ...ncaaGamesProcessed];
+    // Filter out games that are finished or too far in the past (>4 hours ago)
+    const fourHoursAgo = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    const gamesToProcess = [...proGamesProcessed, ...ncaaGamesProcessed].filter(g => {
+      // Keep live games
+      if (g.status === "Live") return true;
+      // Keep upcoming games
+      if (g.status === "Upcoming") return true;
+      // Filter out finished games that started more than 4 hours ago
+      const gameStart = new Date(g.startTime);
+      return gameStart >= fourHoursAgo;
+    });
 
     const tvIdParam = req.query.tvId;
     const tvContext = tvIdParam ? await storage.getTv(Number(tvIdParam)) : null;
