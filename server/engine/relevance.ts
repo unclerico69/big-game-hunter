@@ -1,7 +1,7 @@
 import { Game, Preference } from "@shared/schema";
 import { TEAMS, matchTeamByName, getTeamById } from "../../shared/data/teams";
 import { MARKETS, getMarketById } from "../../shared/data/markets";
-import { LEAGUES, getLeagueById, getDefaultLeaguePriority, isCollegeLeague } from "../../shared/data/leagues";
+import { LEAGUES, getLeagueById, getDefaultLeaguePriority } from "../../shared/data/leagues";
 
 export interface RelevanceResult {
   score: number;
@@ -16,7 +16,6 @@ export interface RelevanceResult {
  * - Preferred team match: +40 (with priority decay)
  * - Preferred market match: +25 (with priority decay)
  * - League priority: +15 to +2 based on position
- * - College boost: +10 for NCAA games
  * - Live game: +5
  * - Hotness factor: hotnessScore * 0.4
  */
@@ -102,12 +101,6 @@ export function calculateRelevance(
     }
   }
 
-  // College Boost (+10 for NCAA games)
-  const isCollegeGame = leagueData?.isCollege || isCollegeLeague(gameLeagueId);
-  if (isCollegeGame) {
-    score += 10;
-    reasons.push("College game boost (+10)");
-  }
 
   // Platform Popularity Boost (+8 if assigned to other TVs)
   const assignedCount = stats?.[game.id] || 0;
