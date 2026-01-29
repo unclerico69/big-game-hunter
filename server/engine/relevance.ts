@@ -1,7 +1,7 @@
 import { Game, Preference } from "@shared/schema";
-import { TEAMS } from "../../shared/data/teams";
-import { MARKETS } from "../../shared/data/markets";
-import { LEAGUES, getLeagueById, getDefaultLeaguePriority } from "../../shared/data/leagues";
+import { TEAMS, matchTeamByName, getTeamById } from "../../shared/data/teams";
+import { MARKETS, getMarketById } from "../../shared/data/markets";
+import { LEAGUES, getLeagueById, getDefaultLeaguePriority, isCollegeLeague } from "../../shared/data/leagues";
 
 export interface RelevanceResult {
   score: number;
@@ -11,6 +11,14 @@ export interface RelevanceResult {
 /**
  * Pure function to calculate game relevance score and generate human-readable reasons.
  * Combines hotness, preferences, and platform signals.
+ * 
+ * Scoring weights:
+ * - Preferred team match: +40 (with priority decay)
+ * - Preferred market match: +25 (with priority decay)
+ * - League priority: +15 to +2 based on position
+ * - College boost: +10 for NCAA games
+ * - Live game: +5
+ * - Hotness factor: hotnessScore * 0.4
  */
 export function calculateRelevance(
   game: any,
@@ -20,90 +28,92 @@ export function calculateRelevance(
 ): RelevanceResult {
   const reasons: string[] = [];
   
-  // 1. Base: Start with hotnessScore * 0.6
-  let score = (game.hotnessScore || 0) * 0.6;
+  // 1. Base: Start with hotnessScore * 0.4
+  let score = (game.hotnessScore || 0) * 0.4;
 
   if (!preferences) {
     return { score: Math.max(0, Math.min(100, Math.round(score))), reasons };
   }
 
   // Rapid Switching Penalty
-  if (tvContext?.lastUpdated) {
+  if (preferences.preventRapidSwitching && tvContext?.lastUpdated) {
     const lastUpdated = new Date(tvContext.lastUpdated);
     const now = new Date();
     const diffMinutes = (now.getTime() - lastUpdated.getTime()) / (1000 * 60);
     
-    if (diffMinutes < 5) {
-      // If this specific game IS the current game, no penalty
-      // But we are scoring "other" games for this TV.
-      // We'll apply a heavy penalty to discourage flipping.
-      score -= 30;
+    if (diffMinutes < 15) {
+      score -= 20;
       reasons.push("Recently updated (preventing rapid flipping)");
     }
   }
 
   // 2. Additive Boosts
   
-  // Structured Team Boost
-  const favoriteTeams = (preferences.favoriteTeams as any[]) ?? [];
-  const matchedFavorite = favoriteTeams.find(fav => {
-    const teamData = TEAMS.find(t => t.id === fav.id);
-    if (!teamData) return false;
-    return (
-      game.teamA?.toLowerCase().includes(teamData.name.toLowerCase()) || 
-      game.teamB?.toLowerCase().includes(teamData.name.toLowerCase())
-    );
-  });
+  // Match game teams to structured team IDs
+  const teamAMatch = matchTeamByName(game.teamA || "");
+  const teamBMatch = matchTeamByName(game.teamB || "");
+  const gameTeamIds = [teamAMatch?.id, teamBMatch?.id].filter(Boolean) as string[];
+  const gameMarketIds = [teamAMatch?.marketId, teamBMatch?.marketId].filter(Boolean) as string[];
 
-  if (matchedFavorite) {
-    const teamData = TEAMS.find(t => t.id === matchedFavorite.id);
-    const priority = matchedFavorite.priority || 0;
-    const boost = 25 - (priority * 2); // Priority 0 = +25, Priority 5 = +15
-    score += Math.max(5, boost);
-    reasons.push(`Preferred team (${teamData?.name})`);
+  // Preferred Teams Boost (+40 base with priority decay)
+  const favoriteTeams = (preferences.favoriteTeams as { id: string; priority: number }[]) ?? [];
+  const preferredTeamIds = favoriteTeams.map(t => t.id);
+  
+  const matchedTeamFav = favoriteTeams.find(fav => gameTeamIds.includes(fav.id));
+  if (matchedTeamFav) {
+    const teamData = getTeamById(matchedTeamFav.id);
+    const priority = matchedTeamFav.priority ?? 0;
+    // Priority 0 = +40, Priority 1 = +35, Priority 2 = +30, etc.
+    const boost = Math.max(10, 40 - (priority * 5));
+    score += boost;
+    reasons.push(`Home team: ${teamData?.name || matchedTeamFav.id} (+${boost})`);
   }
 
-  // Market Boost
-  const favoriteMarkets = (preferences.favoriteMarkets as any[]) ?? [];
-  // Find markets associated with the teams in this game
-  const gameTeamMarkets = TEAMS.filter(t => 
-    game.teamA?.toLowerCase().includes(t.name.toLowerCase()) || 
-    game.teamB?.toLowerCase().includes(t.name.toLowerCase())
-  ).map(t => t.marketId);
-
-  const matchedMarketFav = favoriteMarkets.find(fav => gameTeamMarkets.includes(fav.id));
-
+  // Preferred Markets Boost (+25 base with priority decay)
+  const favoriteMarkets = (preferences.favoriteMarkets as { id: string; priority: number }[]) ?? [];
+  const preferredMarketIds = favoriteMarkets.map(m => m.id);
+  
+  const matchedMarketFav = favoriteMarkets.find(fav => gameMarketIds.includes(fav.id));
   if (matchedMarketFav) {
-    const marketData = MARKETS.find(m => m.id === matchedMarketFav.id);
-    const priority = matchedMarketFav.priority || 0;
-    const boost = 15 - priority;
-    score += Math.max(5, boost);
-    reasons.push(`Local interest (${marketData?.name})`);
+    const marketData = getMarketById(matchedMarketFav.id);
+    const priority = matchedMarketFav.priority ?? 0;
+    // Priority 0 = +25, Priority 1 = +22, Priority 2 = +19, etc.
+    const boost = Math.max(5, 25 - (priority * 3));
+    score += boost;
+    reasons.push(`Local market: ${marketData?.name || matchedMarketFav.id} (+${boost})`);
   }
 
-  // League Priority Boosts (now supports NCAA leagues)
+  // League Priority Boost (including NCAA leagues)
   const leaguePriority = preferences.leaguePriority?.length 
     ? preferences.leaguePriority 
     : getDefaultLeaguePriority();
-  const leagueId = game.league?.toUpperCase() || "";
-  const leagueData = getLeagueById(leagueId);
-  const priorityIndex = leaguePriority.findIndex(l => l.toUpperCase() === leagueId);
   
-  if (priorityIndex === 0) {
-    score += 10;
-    reasons.push(`High league priority (${leagueData?.shortName || leagueId})`);
-  } else if (priorityIndex === 1) {
-    score += 5;
-    reasons.push(`Preferred league (${leagueData?.shortName || leagueId})`);
-  } else if (priorityIndex >= 2 && priorityIndex <= 3) {
-    score += 2;
+  const gameLeagueId = game.league?.toUpperCase() || "";
+  const leagueData = getLeagueById(gameLeagueId);
+  const priorityIndex = leaguePriority.findIndex(l => l.toUpperCase() === gameLeagueId);
+  const totalLeagues = leaguePriority.length || 7;
+  
+  // Calculate league priority weight: Top league = +15, decreasing by position
+  if (priorityIndex !== -1) {
+    const leagueWeight = Math.max(2, 15 - (priorityIndex * 2));
+    score += leagueWeight;
+    if (priorityIndex <= 2) {
+      reasons.push(`${leagueData?.shortName || gameLeagueId} priority #${priorityIndex + 1} (+${leagueWeight})`);
+    }
   }
 
-  // Platform Popularity Boost (+10 if assignedTvCount > 0)
+  // College Boost (+10 for NCAA games)
+  const isCollegeGame = leagueData?.isCollege || isCollegeLeague(gameLeagueId);
+  if (isCollegeGame) {
+    score += 10;
+    reasons.push("College game boost (+10)");
+  }
+
+  // Platform Popularity Boost (+8 if assigned to other TVs)
   const assignedCount = stats?.[game.id] || 0;
   if (assignedCount > 0) {
-    score += 10;
-    reasons.push("Popular with other TVs");
+    score += 8;
+    reasons.push(`Popular (${assignedCount} other TVs)`);
   }
 
   // Live Boost (+5)
@@ -113,14 +123,15 @@ export function calculateRelevance(
 
   if (game.status === "Live") {
     score += 5;
-    reasons.push("Live game");
-  } else if (diffMinutes > 0 && diffMinutes <= 60) {
+    reasons.push("Live now");
+  } else if (diffMinutes > 0 && diffMinutes <= 30) {
+    score += 3;
     reasons.push("Starting soon");
   }
 
-  // Hotness Boost
+  // Hotness indicator (for display, not scoring - already factored into base)
   if (game.hotnessScore > 80) {
-    reasons.push("High in-game excitement");
+    reasons.push("High excitement");
   }
 
   // 3. Penalties
@@ -130,24 +141,26 @@ export function calculateRelevance(
     const diffHours = diffMinutes / 60;
     if (diffHours > 4) {
       score -= 15;
-      reasons.push("Game is more than 4 hours away");
+      reasons.push("More than 4 hours away");
+    } else if (diffHours > 2) {
+      score -= 5;
     }
   }
 
-  // Lowest Priority Penalty (-10)
-  if (priorityIndex !== -1 && priorityIndex === leaguePriority.length - 1) {
-    score -= 10;
+  // Lowest Priority League Penalty (-8)
+  if (priorityIndex !== -1 && priorityIndex === totalLeagues - 1) {
+    score -= 8;
   }
 
-  // 4. Guardrails: Clamp final score to 0–100 and round
-  // Importance-based sorting (Home Team > Priority > Live > Popularity > Hotness)
+  // 4. Sort reasons by importance
+  const reasonPriority = ["Home team", "Local market", "priority", "College", "Live", "Starting", "Popular", "excitement"];
   const sortedReasons = reasons.sort((a, b) => {
-    const order = ["preferred home team", "league priority", "Live game", "Starting soon", "Popular with", "excitement"];
-    const indexA = order.findIndex(o => a.includes(o));
-    const indexB = order.findIndex(o => b.includes(o));
+    const indexA = reasonPriority.findIndex(o => a.includes(o));
+    const indexB = reasonPriority.findIndex(o => b.includes(o));
     return (indexA === -1 ? 99 : indexA) - (indexB === -1 ? 99 : indexB);
   });
 
+  // 5. Clamp final score to 0–100 and round
   return {
     score: Math.max(0, Math.min(100, Math.round(score))),
     reasons: sortedReasons.slice(0, 4)
