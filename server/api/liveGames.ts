@@ -3,7 +3,36 @@ import { storage } from "../storage";
 import { calculateRelevance } from "../engine/relevance";
 import { computeBaseHotness, computeFinalHotness } from "../engine/hotness";
 import { fetchLiveGames } from "../integrations/oddsApi";
-import { fetchAllNcaaGames } from "../services/espnNcaaApi";
+import { fetchProScores } from "../services/proScoresApi";
+import { fetchNcaaScores } from "../services/ncaaScoresApi";
+
+/**
+ * Match a score from external services to a base game from Odds API
+ */
+function findMatchingScore(game: any, scores: any[]) {
+  const startTime = new Date(game.startTime).getTime();
+  const thirtyMinutes = 30 * 60 * 1000;
+
+  return scores.find(s => {
+    const sTime = new Date(s.startTime).getTime();
+    const timeMatch = Math.abs(startTime - sTime) <= thirtyMinutes;
+    const leagueMatch = s.league.toUpperCase() === game.league.toUpperCase();
+    
+    const teamAMatch = 
+      s.homeTeam.toLowerCase().includes(game.teamA.toLowerCase()) || 
+      game.teamA.toLowerCase().includes(s.homeTeam.toLowerCase()) ||
+      s.awayTeam.toLowerCase().includes(game.teamA.toLowerCase()) ||
+      game.teamA.toLowerCase().includes(s.awayTeam.toLowerCase());
+
+    const teamBMatch = 
+      s.homeTeam.toLowerCase().includes(game.teamB.toLowerCase()) || 
+      game.teamB.toLowerCase().includes(s.homeTeam.toLowerCase()) ||
+      s.awayTeam.toLowerCase().includes(game.teamB.toLowerCase()) ||
+      game.teamB.toLowerCase().includes(s.awayTeam.toLowerCase());
+
+    return timeMatch && leagueMatch && teamAMatch && teamBMatch;
+  });
+}
 
 /**
  * GET /api/live-games
@@ -15,22 +44,23 @@ export async function getLiveGames(req: Request, res: Response) {
     const prefs = await storage.getPreferences();
     const stats = await storage.getPlatformStats();
     
-    // Fetch from all sources in parallel
-    const [externalGames, ncaaGames] = await Promise.all([
+    // Fetch all data in parallel
+    const [externalGames, proScores, ncaaScores] = await Promise.all([
       fetchLiveGames(),
-      fetchAllNcaaGames()
+      fetchProScores(),
+      fetchNcaaScores()
     ]);
     
+    const allScores = [...proScores, ...ncaaScores];
     let sourceData = externalGames.length > 0 ? externalGames : [];
     let dataSourceName = externalGames.length > 0 ? "Odds API" : "Mock Fallback";
 
     // Process Pro Games
     const now = new Date();
-    const proGamesProcessed = await Promise.all(sourceData.map(async (eg, idx) => {
+    const gamesToProcess = await Promise.all(sourceData.map(async (eg) => {
       const startTime = new Date(eg.startTime);
       const hasStarted = startTime <= now;
-      const status = (hasStarted && eg.isLive) ? "Live" : "Upcoming";
-
+      
       const title = `${eg.homeTeam} vs ${eg.awayTeam}`;
       const existingGames = await storage.getGames();
       
@@ -39,6 +69,10 @@ export async function getLiveGames(req: Request, res: Response) {
         Math.abs(g.startTime.getTime() - startTime.getTime()) < 60000
       );
       
+      // Match with real-time scores
+      const scoreData = findMatchingScore(eg, allScores);
+      const status = scoreData ? scoreData.status : (hasStarted && eg.isLive ? "Live" : "Upcoming");
+
       if (!dbGame) {
         dbGame = await storage.createGame({
           title,
@@ -59,73 +93,22 @@ export async function getLiveGames(req: Request, res: Response) {
       return {
         ...dbGame,
         broadcastNetwork: eg.broadcastNetwork,
-        isCollege: false
+        homeScore: scoreData?.homeScore ?? null,
+        awayScore: scoreData?.awayScore ?? null,
+        scoreDiff: scoreData ? Math.abs(scoreData.homeScore - scoreData.awayScore) : null,
+        timeRemaining: scoreData?.timeRemaining ?? null,
+        period: scoreData?.period ?? null,
+        isOvertime: scoreData?.isOvertime ?? false,
+        isCollege: scoreData?.isCollege ?? false
       };
     }));
-
-    // Process NCAA Games
-    const processedNcaaGames = await Promise.all(ncaaGames.map(async (ng) => {
-      const title = `${ng.homeTeam} vs ${ng.awayTeam}`;
-      const existingGames = await storage.getGames();
-      
-      let dbGame = existingGames.find(g => 
-        g.title === title && 
-        Math.abs(g.startTime.getTime() - ng.startTime.getTime()) < 60000
-      );
-      
-      if (!dbGame) {
-        dbGame = await storage.createGame({
-          title,
-          teamA: ng.homeTeam,
-          teamB: ng.awayTeam,
-          league: ng.league,
-          channel: "ESPN",
-          startTime: ng.startTime,
-          status: ng.status,
-          relevance: 0,
-          assignedTvCount: 0
-        });
-      } else if (dbGame.status !== ng.status) {
-        await storage.updateGameStatus(dbGame.id, ng.status);
-        dbGame.status = ng.status;
-      }
-
-      return {
-        ...dbGame,
-        scoreDiff: Math.abs(ng.homeScore - ng.awayScore),
-        timeRemaining: ng.timeRemaining,
-        isOvertime: ng.isOvertime,
-        isCollege: true,
-        broadcastNetwork: "ESPN"
-      };
-    }));
-
-    const gamesToProcess = proGamesProcessed.length > 0 ? [...proGamesProcessed, ...processedNcaaGames] : [...processedNcaaGames, ...mockGames.map(g => ({ ...g, isCollege: false }))];
 
     const tvIdParam = req.query.tvId;
     const tvContext = tvIdParam ? await storage.getTv(Number(tvIdParam)) : null;
 
     const processedGames = gamesToProcess.map(g => {
-      const isLive = g.status === "Live";
-      
-      // MOCK DATA for Pro games if they don't have real-time scores yet
-      const mockFields = (isLive && !g.isCollege) ? ((g.id === 1 || g.id === -1) ? {
-        scoreDiff: 3,
-        timeRemaining: 120,
-        isOvertime: true
-      } : {
-        scoreDiff: 15,
-        timeRemaining: 1200,
-        isOvertime: false
-      }) : {
-        scoreDiff: (g as any).scoreDiff ?? null,
-        timeRemaining: (g as any).timeRemaining ?? null,
-        isOvertime: (g as any).isOvertime ?? false
-      };
-
       const gameForScoring = { 
         ...g, 
-        ...mockFields,
         assignedTvCount: stats[g.id] || 0 
       };
 
@@ -139,7 +122,6 @@ export async function getLiveGames(req: Request, res: Response) {
 
       return {
         ...g,
-        ...mockFields,
         relevanceScore: relevanceResult.score,
         reasons: relevanceResult.reasons,
         hotnessScore,
