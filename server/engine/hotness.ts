@@ -6,33 +6,57 @@ export interface HotnessResult {
 }
 
 /**
- * Computes base hotness score derived only from game state.
- * Uses the simplified score-driven formula:
- * - Live games: +20
- * - Close score (<=7): +20, Very close (<=3): +30 additional
- * - Late game (<5 mins): +25
- * - Overtime: sets to 100
- * - Assigned TVs: +15 per TV
- * Returns score (0-100) and array of reasons.
+ * New Hotness Algorithm (Simple, Expressive)
+ * 
+ * Step 1: Zero the Baseline - hotness = 0
+ * Step 2: Status Gate - Scheduled games capped at 40
+ * Step 3: Live Game Core - Live adds +25
  */
 export function computeBaseHotnessWithReasons(game: any): HotnessResult {
   let hotness = 0;
   const reasons: string[] = [];
 
-  // Live game boost
+  // Step 1: Zero the Baseline
+  // No league, no preference, no hype yet.
+
+  // Step 2: Status Gate (Critical)
+  // Scheduled games can never exceed 40
+  if (game.status === "Scheduled" || game.status === "Upcoming") {
+    const now = new Date();
+    const startTime = new Date(game.startTime);
+    const timeUntilStart = (startTime.getTime() - now.getTime()) / 1000; // seconds
+
+    if (timeUntilStart > 60 * 60) {
+      // More than 60 minutes away
+      return { score: 10, reasons: ["Scheduled (>1hr away)"] };
+    }
+    if (timeUntilStart > 30 * 60) {
+      // 30-60 minutes away
+      return { score: 20, reasons: ["Starting within the hour"] };
+    }
+    if (timeUntilStart > 10 * 60) {
+      // 10-30 minutes away
+      return { score: 30, reasons: ["Starting soon"] };
+    }
+    // Less than 10 minutes away
+    return { score: 40, reasons: ["About to start"] };
+  }
+
+  // Step 3: Live Game Core
+  // Live ≠ hot — just eligible for more hotness
   if (game.status === "Live") {
-    hotness += 20;
+    hotness += 25;
     reasons.push("Live game");
   }
 
   // Score difference boost (additive)
   if (game.scoreDiff !== null && game.scoreDiff !== undefined) {
     if (game.scoreDiff <= 3) {
-      hotness += 50; // 20 + 30
-      reasons.push("Close score");
+      hotness += 30;
+      reasons.push("Nail-biter");
     } else if (game.scoreDiff <= 7) {
-      hotness += 20;
-      reasons.push("Close score");
+      hotness += 15;
+      reasons.push("Close game");
     }
   }
 
@@ -45,14 +69,8 @@ export function computeBaseHotnessWithReasons(game: any): HotnessResult {
   // Overtime override - max hotness
   if (game.isOvertime === true) {
     hotness = 100;
+    reasons.length = 0;
     reasons.push("Overtime");
-  }
-
-  // Platform popularity boost (+15 per assigned TV)
-  const assignedCount = game.assignedTvCount || 0;
-  if (assignedCount > 0) {
-    hotness += assignedCount * 15;
-    reasons.push("Popular across TVs");
   }
 
   return {
